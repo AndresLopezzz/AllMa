@@ -1,0 +1,27 @@
+# Entornos virtuales
+venv/
+.env
+
+# Archivos de Python
+__pycache__/
+*.pyc
+
+# Archivos de Django
+db.sqlite3
+/media/
+staticfiles/
+
+# Node.js
+node_modules/
+dist/
+build/
+
+# Android
+*.apk
+.gradle/
+.idea/
+app/build/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
