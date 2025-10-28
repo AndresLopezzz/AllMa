@@ -1,0 +1,24 @@
+# Django Core
+Django>=5.2,<6.0
+djangorestframework>=3.15,<4.0
+
+# Database - Usar psycopg en lugar de psycopg2-binary para Python 3.14
+psycopg[binary]>=3.1,<4.0
+
+# Environment Variables
+python-decouple>=3.8,<4.0
+
+# Authentication
+djangorestframework-simplejwt>=5.3,<6.0
+
+# Image Storage (Cloudinary)
+cloudinary>=1.41,<2.0
+
+# CORS Headers (para conectar con frontend)
+django-cors-headers>=4.3,<5.0
+
+# Image Processing - Pillow con versión más flexible
+# NOTA: Pillow 10.x no tiene soporte completo para Python 3.14 en Windows
+# Se comenta temporalmente. Se puede instalar cuando esté disponible o usar Python 3.11/3.12
+# Cloudinary maneja el procesamiento de imágenes, así que no es crítico por ahora
+# Pillow>=10.0,<11.0

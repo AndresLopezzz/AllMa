@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config, Csv
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +22,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-p#jer2qz8xm5bpjx@0b#l!c_vrfz)p9!=hnil_mau_vc_ezh6m'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -39,14 +41,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'accounts',
+    'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
+    'accounts',
     'inventory',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -78,16 +82,28 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Opción 1: PostgreSQL (producción y desarrollo)
 DATABASES = {
-  'default': {
-          'ENGINE': 'django.db.backends.postgresql',
-          'NAME': 'inventario_db',
-          'USER': 'postgres',
-          'PASSWORD': '1234',
-          'HOST': 'localhost',
-          'PORT': '1234',
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='5432'),
+        'OPTIONS': {
+            'client_encoding': 'UTF8',
+        },
     }
 }
+
+# Opción 2: SQLite (alternativa - descomentar si lo necesitas)
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 
 # Password validation
@@ -130,3 +146,52 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CORS Settings
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+# REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        # JWT Authentication (nuevo - más seguro)
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # Token Authentication (antiguo - mantenerlo para compatibilidad temporal)
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+# Simple JWT Configuration
+SIMPLE_JWT = {
+    # Access Token: Token de corta duración para hacer peticiones
+    # Expira en 1 hora - Si alguien lo roba, solo funciona 1 hora
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+
+    # Refresh Token: Token de larga duración para renovar el Access Token
+    # Expira en 7 días - Permite obtener nuevos Access Tokens sin hacer login
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+
+    # Permite rotar el Refresh Token (genera uno nuevo al usarlo)
+    # Más seguro: el refresh token viejo deja de funcionar
+    'ROTATE_REFRESH_TOKENS': True,
+
+    # Pone en lista negra los refresh tokens viejos después de rotarlos
+    'BLACKLIST_AFTER_ROTATION': True,
+
+    # Algoritmo de encriptación
+    'ALGORITHM': 'HS256',
+
+    # Nombre del header para enviar el token
+    'AUTH_HEADER_TYPES': ('Bearer',),
+
+    # Campo del user model que se incluye en el token
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+}

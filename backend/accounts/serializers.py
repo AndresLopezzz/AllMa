@@ -7,6 +7,13 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'name', 'role', 'plan', 'is_active', 'date_joined']
         extra_kwargs = {'password': {'write_only': True}}
 
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Serializer para obtener el perfil del usuario autenticado"""
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'name', 'role', 'plan', 'is_active', 'date_joined']
+        read_only_fields = ['id', 'email', 'date_joined']
+
 class RegisterSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(write_only=True)
 
@@ -17,6 +24,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate(self, data):
         if data['password'] != data['password2']:
             raise serializers.ValidationError("Passwords do not match.")
+        if len(data['password']) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
         return data
 
     def create(self, validated_data):
