@@ -1,0 +1,1916 @@
+================================================================================
+  PLAN COMPLETO 6 SEMANAS - SAAS DE INVENTARIOS
+  Django + React + TanStack Router/Query + Bun + Cloudinary
+================================================================================
+
+STACK TECNOLÓGICO FINAL:
+------------------------
+Backend:    Django + DRF + PostgreSQL + JWT + Cloudinary
+Frontend:   React + TypeScript + Bun + Vite
+Router:     TanStack Router (file-based routing)
+Data:       TanStack Query (server state)
+Forms:      TanStack Form (validaciones tipadas)
+UI:         shadcn/ui + Tailwind CSS
+Storage:    Cloudinary (imágenes)
+Deploy:     Railway (backend) + Vercel (frontend)
+
+
+================================================================================
+SEMANA 1 — BACKEND BASE Y AUTENTICACIÓN
+================================================================================
+
+📅 DÍA 1 — Preparación del entorno
+----------------------------------
+Objetivo: Entorno de desarrollo funcionando
+
+Tareas:
+□ Instalar Python 3.11+, PostgreSQL, crear entorno virtual
+□ Iniciar proyecto Django: django-admin startproject backend
+□ Crear apps: python manage.py startapp accounts, inventory, templates
+□ Configurar PostgreSQL local (recomendado: Docker)
+□ Instalar dependencias: djangorestframework, psycopg2-binary, python-decouple
+□ Crear .env con: SECRET_KEY, DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT
+□ Añadir .env a .gitignore
+□ Configurar settings.py para usar variables de entorno
+□ Verificar: python manage.py runserver funciona sin errores
+
+Criterio de aceptación:
+✓ Servidor Django corre sin errores
+✓ Conectado a PostgreSQL (no SQLite)
+✓ Estructura: backend/ con accounts/, inventory/, templates/
+✓ .env configurado correctamente
+
+----------------------------------
+📅 DÍA 2 — Modelo de Usuario personalizado
+----------------------------------
+Objetivo: Crear sistema de usuarios base
+
+Tareas:
+□ En accounts/models.py crear modelo User personalizado:
+  - email (único, usado para login)
+  - name
+  - role (choices: admin, employee)
+  - plan (choices: free, pro, premium)
+  - is_active, is_staff, date_joined
+□ Heredar de AbstractBaseUser y PermissionsMixin
+□ Crear UserManager personalizado
+□ Configurar AUTH_USER_MODEL en settings.py
+□ Crear migraciones: makemigrations, migrate
+□ Crear superuser para pruebas
+□ Registrar modelo en admin.py
+□ Probar crear usuarios desde admin
+
+Criterio de aceptación:
+✓ Usuarios se crean con email (no username)
+✓ Superuser funcional
+✓ Modelo visible en admin de Django
+
+
+----------------------------------
+📅 DÍA 3 — API de registro y login
+----------------------------------
+Objetivo: Endpoints de autenticación básicos
+
+Tareas:
+□ Instalar djangorestframework y agregarlo a INSTALLED_APPS
+□ En accounts/ crear serializers.py:
+  - UserSerializer (para registro)
+  - UserProfileSerializer (para perfil)
+□ Crear views.py con APIView o ViewSet:
+  - POST /api/register/ (crear usuario)
+  - POST /api/login/ (autenticar - preparar para JWT)
+  - GET /api/profile/ (obtener datos usuario actual)
+□ Configurar urls.py principal y de accounts
+□ Validaciones: email único, contraseña segura (min 8 chars)
+□ Manejo de errores con status codes apropiados
+□ Probar con Postman/Thunder Client
+
+Criterio de aceptación:
+✓ Registro funciona y crea usuario en DB
+✓ Login devuelve datos del usuario
+✓ Errores devuelven JSON con mensaje claro
+✓ Endpoints documentados en README
+
+
+----------------------------------
+📅 DÍA 4 — JWT Authentication
+----------------------------------
+Objetivo: Implementar autenticación con tokens
+
+Tareas:
+□ Instalar djangorestframework-simplejwt
+□ Configurar en settings.py:
+  REST_FRAMEWORK = {
+      'DEFAULT_AUTHENTICATION_CLASSES': [
+          'rest_framework_simplejwt.authentication.JWTAuthentication',
+      ],
+  }
+□ Configurar tiempos de tokens:
+  SIMPLE_JWT = {
+      'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+      'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+  }
+□ Actualizar endpoint login para devolver access + refresh tokens
+□ Crear endpoints:
+  - POST /api/token/ (obtener tokens)
+  - POST /api/token/refresh/ (renovar access token)
+□ Proteger /api/profile/ con @permission_classes([IsAuthenticated])
+□ Probar: login → obtener token → llamar profile con token en header
+
+Criterio de aceptación:
+✓ Login devuelve access y refresh tokens
+✓ Profile solo funciona con token válido (401 sin token)
+✓ Refresh token renueva el access token
+✓ Tokens expiran según configuración
+
+
+----------------------------------
+📅 DÍA 5 — Modelos de Inventario base
+----------------------------------
+Objetivo: Crear modelos principales del sistema
+
+Tareas:
+□ En inventory/models.py crear:
+
+  BusinessTemplate:
+    - name (ej: "Ferretería", "Ropa", "Restaurante")
+    - description
+    - custom_fields (JSONField): estructura de campos dinámicos
+    - created_by (FK a User)
+    - is_active
+    - created_at
+
+  Inventory:
+    - name (ej: "Bodega Principal", "Tienda Centro")
+    - owner (FK a User)
+    - template (FK a BusinessTemplate)
+    - custom_template_fields (JSONField, opcional, para personalizar)
+    - created_at, updated_at
+
+  Product:
+    - name, sku (único por inventario), description
+    - quantity, price, category
+    - inventory (FK a Inventory)
+    - custom_data (JSONField, valores de campos custom)
+    - low_stock_threshold (default=10)
+    - created_at, updated_at
+
+□ Aplicar migraciones
+□ Registrar modelos en admin
+□ Crear 2-3 plantillas de ejemplo desde admin
+□ Crear 1 inventario de prueba
+□ Crear 3-5 productos de ejemplo
+
+Criterio de aceptación:
+✓ Todos los modelos visibles en admin
+✓ Relaciones funcionan correctamente
+✓ Datos de prueba creados
+
+
+----------------------------------
+📅 DÍA 6 — API de Plantillas
+----------------------------------
+Objetivo: Exponer plantillas para el frontend
+
+Tareas:
+□ En inventory/ crear serializers.py:
+  - BusinessTemplateSerializer
+□ Crear views para plantillas:
+  - GET /api/templates/ (lista todas las plantillas activas)
+  - GET /api/templates/<id>/ (detalle con custom_fields)
+  - POST /api/templates/ (solo admin puede crear - opcional para MVP)
+□ Proteger con IsAuthenticated
+□ Probar que devuelve estructura JSON correcta de custom_fields
+□ Documentar estructura esperada de custom_fields:
+  [
+    {"name": "talla", "type": "text", "required": true},
+    {"name": "color", "type": "select", "options": ["rojo", "azul"], "required": false}
+  ]
+
+Criterio de aceptación:
+✓ Lista de plantillas accesible con token
+✓ Cada plantilla muestra su custom_fields
+✓ JSON bien estructurado y documentado
+
+
+----------------------------------
+📅 DÍA 7 — API de Inventarios (CRUD básico)
+----------------------------------
+Objetivo: Gestionar inventarios desde API
+
+Tareas:
+□ Crear InventorySerializer
+□ Crear endpoints:
+  - GET /api/inventories/ (lista inventarios del usuario actual)
+  - POST /api/inventories/ (crear nuevo, requiere name + template_id)
+  - GET /api/inventories/<id>/ (detalle)
+  - PUT /api/inventories/<id>/ (editar nombre)
+  - DELETE /api/inventories/<id>/ (eliminar)
+□ Filtrar por usuario: .filter(owner=request.user)
+□ Validaciones:
+  - Usuario solo ve/edita sus propios inventarios
+  - Template debe existir al crear
+□ Probar CRUD completo desde Postman
+□ Documentar endpoints en README o api_docs.md
+
+Criterio de aceptación:
+✓ Usuario puede crear inventario seleccionando plantilla
+✓ Solo ve sus propios inventarios
+✓ CRUD completo funcional
+✓ Errores apropiados (404, 403, 400)
+
+
+================================================================================
+SEMANA 2 — CRUD DE PRODUCTOS Y LÓGICA DE PLANTILLAS
+================================================================================
+
+📅 DÍA 1 — API de Productos (Crear y Listar)
+----------------------------------
+Objetivo: CRUD básico de productos
+
+Tareas:
+□ Crear ProductSerializer que incluya:
+  - Todos los campos del modelo
+  - custom_data (validar contra template del inventario)
+  - Campo read-only: template_info (devuelve custom_fields del template)
+□ Crear endpoints:
+  - GET /api/products/ (lista con query params: ?inventory=<id>)
+  - POST /api/products/ (crear producto)
+□ Al crear producto:
+  - Verificar que inventory pertenece al usuario
+  - Validar custom_data contra template.custom_fields
+  - Validar que sku sea único dentro del inventario
+□ Probar crear productos con y sin custom_data
+
+Criterio de aceptación:
+✓ Productos se crean asociados a un inventario
+✓ custom_data se valida correctamente
+✓ Errores claros si validación falla
+
+
+----------------------------------
+📅 DÍA 2 — Completar CRUD de Productos
+----------------------------------
+Objetivo: Editar, eliminar y detalle
+
+Tareas:
+□ Añadir endpoints faltantes:
+  - GET /api/products/<id>/ (detalle)
+  - PUT /api/products/<id>/ (actualizar)
+  - PATCH /api/products/<id>/ (actualización parcial)
+  - DELETE /api/products/<id>/ (eliminar)
+□ Validaciones:
+  - Usuario solo puede operar productos de sus inventarios
+  - Al actualizar, re-validar custom_data
+  - Verificar permisos (403 si no es el owner)
+□ Añadir soft delete opcional (is_active=False en lugar de eliminar)
+□ Probar todos los métodos HTTP
+
+Criterio de aceptación:
+✓ CRUD completo funcional
+✓ Permisos correctamente aplicados
+✓ Validaciones funcionan en updates
+
+
+----------------------------------
+📅 DÍA 3 — Filtros y búsqueda
+----------------------------------
+Objetivo: Mejorar listado de productos
+
+Tareas:
+□ Instalar django-filter: pip install django-filter
+□ Añadir a INSTALLED_APPS
+□ Crear ProductFilter con filtros por:
+  - search (nombre o sku)
+  - category
+  - inventory
+  - low_stock (quantity < low_stock_threshold)
+  - template
+□ Añadir paginación: PageNumberPagination, 20 items por página
+□ Añadir ordenamiento: ?ordering=name, -price, created_at
+□ Probar combinaciones: ?search=cable&category=electrónica&low_stock=true
+
+Criterio de aceptación:
+✓ Búsqueda funciona en nombre y sku
+✓ Filtros combinables
+✓ Paginación operativa
+✓ Respuesta incluye: count, next, previous, results
+
+
+----------------------------------
+📅 DÍA 4 — Personalizar plantilla de inventario
+----------------------------------
+Objetivo: Permitir modificar custom_fields por inventario
+
+Tareas:
+□ Crear endpoint:
+  - PUT /api/inventories/<id>/custom-fields/
+  - Body: {"custom_fields": [...]}
+□ Lógica:
+  - Guardar en inventory.custom_template_fields
+  - Validar estructura de JSON (name, type, required, options)
+□ Al crear producto en este inventario:
+  - Priorizar custom_template_fields si existe
+  - Sino usar template.custom_fields
+□ Crear helper function: get_effective_template(inventory)
+□ Probar: modificar plantilla → crear producto → verificar campos
+
+Criterio de aceptación:
+✓ Usuario puede personalizar campos de su inventario
+✓ Nuevos productos usan plantilla personalizada
+✓ Productos viejos no se afectan
+
+
+----------------------------------
+📅 DÍA 5 — Validaciones avanzadas y reglas de negocio
+----------------------------------
+Objetivo: Implementar límites y validaciones
+
+Tareas:
+□ Crear constantes de planes:
+  PLAN_LIMITS = {
+      'free': {'max_products': 100, 'max_inventories': 1},
+      'pro': {'max_products': 1000, 'max_inventories': 5},
+      'premium': {'max_products': -1, 'max_inventories': -1}
+  }
+□ Crear validador: check_plan_limits(user, action)
+□ Aplicar al crear productos e inventarios
+□ Validar:
+  - quantity >= 0
+  - price > 0
+  - sku único dentro del inventario
+□ Devolver errores 402 Payment Required cuando se excede límite
+□ Crear endpoint GET /api/user/usage/ que devuelve:
+  {
+    "plan": "free",
+    "products_count": 45,
+    "products_limit": 100,
+    "inventories_count": 1,
+    "inventories_limit": 1
+  }
+
+Criterio de aceptación:
+✓ Límites se respetan en creación
+✓ Validaciones de datos funcionan
+✓ Usuario puede ver su uso actual
+
+
+----------------------------------
+📅 DÍA 6 — Integración de Cloudinary
+----------------------------------
+Objetivo: Subir y gestionar imágenes de productos
+
+Tareas:
+□ Crear cuenta gratis en Cloudinary
+□ Instalar: pip install cloudinary django-cloudinary-storage pillow
+□ Añadir a INSTALLED_APPS: 'cloudinary_storage', 'cloudinary'
+□ Configurar en settings.py:
+  CLOUDINARY_STORAGE = {
+      'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+      'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+      'API_SECRET': os.getenv('CLOUDINARY_API_SECRET')
+  }
+  DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+□ Añadir a Product model:
+  from cloudinary.models import CloudinaryField
+  image = CloudinaryField('image', blank=True, null=True)
+□ Migrar: makemigrations, migrate
+□ Actualizar ProductSerializer para incluir image_url
+□ Configurar parser: MultiPartParser, FormParser
+□ Probar upload desde Postman con multipart/form-data
+
+Criterio de aceptación:
+✓ Imágenes se suben a Cloudinary (no a DB)
+✓ URL de imagen devuelta en API
+✓ Dashboard de Cloudinary muestra imágenes subidas
+
+
+----------------------------------
+📅 DÍA 7 — Tests unitarios básicos
+----------------------------------
+Objetivo: Asegurar funcionalidad crítica
+
+Tareas:
+□ En accounts/tests.py crear tests:
+  - test_user_registration
+  - test_user_login_success
+  - test_user_login_invalid_credentials
+  - test_profile_requires_authentication
+□ En inventory/tests.py crear tests:
+  - test_create_product_success
+  - test_create_product_exceeds_plan_limit
+  - test_list_products_filtered_by_inventory
+  - test_update_product_validates_custom_data
+  - test_user_cannot_access_other_user_products
+□ Correr: python manage.py test
+□ Arreglar tests que fallen
+□ Documentar cómo correr tests en README
+
+Criterio de aceptación:
+✓ Al menos 8 tests creados y pasando
+✓ Coverage > 60% en funcionalidades críticas
+✓ README documenta cómo correr tests
+
+
+================================================================================
+SEMANA 3 — DASHBOARD, MÉTRICAS Y REPORTES
+================================================================================
+
+📅 DÍA 1 — Modelo de Movimientos
+----------------------------------
+Objetivo: Registrar historial de cambios de stock
+
+Tareas:
+□ En inventory/models.py crear Movement:
+  - product (FK a Product)
+  - movement_type (choices: 'entrada', 'salida', 'ajuste')
+  - quantity (puede ser negativa para salidas)
+  - reason (TextField opcional)
+  - performed_by (FK a User)
+  - timestamp (auto_now_add)
+□ Migrar
+□ Crear signal post_save en Product para registrar movimientos:
+  - Al cambiar quantity, crear Movement automáticamente
+□ Registrar en admin
+□ Probar: cambiar stock de producto → ver movimiento creado
+
+Criterio de aceptación:
+✓ Cada cambio de stock genera movimiento
+✓ Historial accesible desde admin
+✓ Incluye quién hizo el cambio
+
+
+----------------------------------
+📅 DÍA 2 — API de Dashboard - Métricas básicas
+----------------------------------
+Objetivo: Endpoint principal del dashboard
+
+Tareas:
+□ Crear endpoint GET /api/dashboard/:
+  - total_products (count de productos activos del usuario)
+  - total_inventory_value (sum de price * quantity)
+  - low_stock_count (productos con quantity < threshold)
+  - total_inventories
+□ Permitir filtro opcional: ?inventory=<id>
+□ Optimizar queries con select_related, prefetch_related
+□ Usar Django Debug Toolbar para verificar queries
+□ Asegurar respuesta < 500ms para ~100 productos
+
+Criterio de aceptación:
+✓ Dashboard devuelve métricas correctas
+✓ Filtro por inventario funciona
+✓ Performance aceptable
+
+
+----------------------------------
+📅 DÍA 3 — Dashboard - Datos para gráficas
+----------------------------------
+Objetivo: Preparar data para visualizaciones
+
+Tareas:
+□ Extender endpoint /api/dashboard/ con:
+  - products_by_category: [{"category": "Electrónica", "count": 45}, ...]
+  - value_by_inventory: [{"inventory": "Bodega 1", "value": 15000}, ...]
+  - recent_movements: últimos 10 movimientos con info del producto
+□ Si tienes tiempo, añadir:
+  - stock_trend: evolución de stock últimos 7 días (requiere más lógica)
+□ Formato JSON listo para gráficas (arrays de objetos)
+□ Probar que devuelve data coherente
+
+Criterio de aceptación:
+✓ Data lista para graficar sin transformaciones
+✓ Estructura documentada en API docs
+
+
+----------------------------------
+📅 DÍA 4 — API de Alertas
+----------------------------------
+Objetivo: Notificar productos críticos
+
+Tareas:
+□ Crear endpoint GET /api/alerts/:
+  - Lista productos con quantity < low_stock_threshold
+  - Ordenar por criticidad: (quantity / threshold) ASC
+  - Incluir info del inventario y categoría
+  - Paginado (10 por página)
+□ Opcional: añadir campo alert_sent (BooleanField) en Product
+  - Marcar cuando se muestre alerta
+  - Filtro para "alertas nuevas"
+□ Probar con productos en stock bajo
+
+Criterio de aceptación:
+✓ Dashboard puede consumir alertas
+✓ Productos ordenados por criticidad
+✓ Incluye toda info necesaria para mostrar
+
+
+----------------------------------
+📅 DÍA 5 — Exportar a CSV
+----------------------------------
+Objetivo: Descargar inventario
+
+Tareas:
+□ Instalar: pip install pandas (opcional, o usa csv nativo)
+□ Crear endpoint GET /api/inventories/<id>/export/:
+  - Genera CSV con todos los productos del inventario
+  - Columnas: SKU, Nombre, Cantidad, Precio, Categoría, + custom_fields aplanados
+  - Return FileResponse con content-type: text/csv
+□ Lógica para aplanar custom_data en columnas
+□ Probar descarga desde Postman (save response to file)
+□ Opcional: añadir ?format=xlsx para Excel
+
+Criterio de aceptación:
+✓ CSV descarga correctamente
+✓ Incluye todos los productos y campos custom
+✓ Headers claros y legibles
+
+
+----------------------------------
+📅 DÍA 6 — Endpoint de estadísticas por inventario
+----------------------------------
+Objetivo: Métricas específicas por inventario
+
+Tareas:
+□ Crear GET /api/inventories/<id>/stats/:
+  {
+    "inventory_id": 1,
+    "inventory_name": "Bodega Principal",
+    "total_products": 150,
+    "total_value": 45000,
+    "categories": [{"name": "Electrónica", "count": 30, "value": 15000}, ...],
+    "low_stock_products": 5,
+    "top_products_by_value": [...],
+    "recent_movements": [...]
+  }
+□ Optimizar queries
+□ Cachear por 5 minutos (opcional: django-cache)
+
+Criterio de aceptación:
+✓ Stats detalladas por inventario
+✓ Performance < 1 segundo
+
+
+----------------------------------
+📅 DÍA 7 — Revisión y documentación de API completa
+----------------------------------
+Objetivo: Consolidar backend
+
+Tareas:
+□ Revisar todos los endpoints creados
+□ Actualizar api_docs.md con:
+  - Tabla de endpoints (método, ruta, descripción, auth)
+  - Ejemplos de request/response para cada uno
+  - Códigos de error comunes
+  - Notas sobre paginación, filtros, ordenamiento
+□ Crear collection de Postman/Thunder Client exportable
+□ Seed data: crear comando manage.py seed_data que crea:
+  - 3 usuarios (1 free, 1 pro, 1 premium)
+  - 5 plantillas
+  - 10 inventarios
+  - 100 productos variados
+  - 50 movimientos
+□ Documentar cómo usar el seed
+□ Correr tests completos, arreglar lo que falle
+□ Commit & push
+
+Criterio de aceptación:
+✓ Documentación API completa y clara
+✓ Seed data funcional
+✓ Tests pasando
+✓ Backend listo para conectar frontend
+
+
+================================================================================
+SEMANA 4 — FRONTEND CON REACT + TANSTACK
+================================================================================
+
+📅 DÍA 1 — Setup del proyecto frontend
+----------------------------------
+Objetivo: Configurar proyecto moderno con TanStack
+
+Tareas:
+□ Instalar Bun: curl -fsSL https://bun.sh/install | bash
+□ Crear proyecto:
+  bun create vite frontend --template react-ts
+  cd frontend
+□ Instalar dependencias principales:
+  bun add @tanstack/react-router @tanstack/react-query
+  bun add @tanstack/router-devtools @tanstack/react-query-devtools
+  bun add axios zustand
+□ Instalar shadcn/ui:
+  bunx shadcn-ui@latest init
+  Seleccionar: TypeScript, Tailwind, configuración default
+□ Estructura de carpetas:
+  src/
+    routes/           # TanStack Router (file-based)
+    components/
+      ui/            # shadcn components
+      layout/
+      products/
+      inventory/
+    lib/
+      api/           # axios clients
+      hooks/         # custom hooks
+      utils/
+    types/           # TypeScript types
+□ Configurar variables de entorno:
+  .env.local:
+    VITE_API_URL=http://localhost:8000
+□ Configurar axios client base en lib/api/client.ts
+
+Criterio de aceptación:
+✓ Proyecto corre con: bun run dev
+✓ TanStack Router configurado
+✓ shadcn/ui instalado y funcional
+✓ Puede hacer request a backend (probar con GET /api/templates/)
+
+
+----------------------------------
+📅 DÍA 2 — TanStack Router + Autenticación
+----------------------------------
+Objetivo: Configurar rutas y sistema de auth
+
+Tareas:
+□ Configurar TanStack Router file-based:
+  src/routes/
+    __root.tsx       # Layout principal
+    index.tsx        # Landing/home
+    login.tsx
+    register.tsx
+    _authenticated/  # Rutas protegidas
+      dashboard.tsx
+      inventories/
+        index.tsx
+        $id.tsx
+□ Crear store de auth con Zustand (lib/store/authStore.ts):
+  - user: User | null
+  - tokens: {access, refresh} | null
+  - login(email, password)
+  - logout()
+  - refreshToken()
+  - isAuthenticated()
+□ Crear context de TanStack Query:
+  - QueryClient con configuración default
+  - Retry logic, stale time
+□ Implementar páginas login y register:
+  - Formularios con shadcn/ui (Form, Input, Button)
+  - Validación básica (email, password)
+  - Llamar a /api/register/ y /api/token/
+  - Guardar tokens en authStore
+  - Redirigir a dashboard tras login exitoso
+□ Proteger rutas en _authenticated con loader que verifica token
+
+Criterio de aceptación:
+✓ Usuario puede registrarse y hacer login
+✓ Tokens se guardan en Zustand + localStorage
+✓ Redirección automática funciona
+✓ Rutas protegidas redirigen a login si no hay token
+
+
+----------------------------------
+📅 DÍA 3 — Layout y navegación
+----------------------------------
+Objetivo: Crear estructura visual de la app
+
+Tareas:
+□ Crear components/layout/AppLayout.tsx:
+  - Header con:
+    · Logo/nombre de la app
+    · Navegación: Dashboard, Inventarios, Plantillas
+    · UserMenu dropdown (nombre usuario, cerrar sesión)
+  - Sidebar (opcional, o solo header)
+  - Main content area con <Outlet />
+  - Footer (opcional)
+□ Usar en __root.tsx como layout principal
+□ Implementar logout que:
+  - Limpia authStore
+  - Limpia localStorage
+  - Invalida queries de TanStack Query
+  - Redirige a login
+□ Hacer responsive:
+  - Menú hamburguesa en móvil
+  - Colapsar sidebar en tablets
+□ Añadir theme toggle (light/dark) con shadcn
+
+Criterio de aceptación:
+✓ Navegación funcional entre páginas
+✓ Logout funciona correctamente
+✓ Layout responsive
+✓ UI profesional y consistente
+
+
+----------------------------------
+📅 DÍA 4 — Dashboard con TanStack Query
+----------------------------------
+Objetivo: Página principal con métricas
+
+Tareas:
+□ Crear queries con TanStack Query (lib/api/queries/):
+  - useDashboardQuery() que consume /api/dashboard/
+  - useAlertsQuery() para /api/alerts/
+□ En routes/_authenticated/dashboard.tsx:
+  - Usar useDashboardQuery() con loading/error states
+  - Cards con shadcn/ui mostrando:
+    · Total productos
+    · Valor total inventario
+    · Productos en alerta
+    · Total inventarios
+  - Sección "Acceso rápido":
+    · Botón "Agregar Producto" (modal o navegar)
+    · Botón "Nuevo Inventario"
+  - Instalar biblioteca de gráficas:
+    bun add recharts
+  - Gráfica de productos por categoría (PieChart o BarChart)
+□ Implementar refetch automático cada 30 segundos
+□ Añadir TanStack Query Devtools
+
+Criterio de aceptación:
+✓ Dashboard muestra datos reales del backend
+✓ Gráfica renderiza correctamente
+✓ Loading states se muestran apropiadamente
+✓ Refetch automático funciona
+
+
+----------------------------------
+📅 DÍA 5 — Lista de inventarios + Seleccionar plantilla
+----------------------------------
+Objetivo: Crear y ver inventarios
+
+Tareas:
+□ Crear queries:
+  - useInventoriesQuery() → GET /api/inventories/
+  - useTemplatesQuery() → GET /api/templates/
+  - useCreateInventoryMutation() → POST /api/inventories/
+□ En routes/_authenticated/inventories/index.tsx:
+  - Grid/lista de inventarios (cards de shadcn)
+  - Cada card muestra: nombre, plantilla, fecha creación, # productos
+  - Botón "Crear Inventario" que abre Dialog
+□ En CreateInventoryDialog:
+  - Input para nombre
+  - Select con lista de plantillas (useTemplatesQuery)
+  - Preview de campos custom de la plantilla seleccionada
+  - Botón Crear
+□ Al crear exitosamente:
+  - Invalidar query de inventarios (queryClient.invalidateQueries)
+  - Cerrar dialog
+  - Mostrar toast de éxito (bun add sonner)
+□ Mostrar skeleton loading mientras carga
+
+Criterio de aceptación:
+✓ Usuario puede crear inventario seleccionando plantilla
+✓ Lista se actualiza automáticamente tras crear
+✓ UI responsive y profesional
+✓ Feedback visual apropiado
+
+
+----------------------------------
+📅 DÍA 6 — Vista de inventario individual
+----------------------------------
+Objetivo: Ver productos de un inventario
+
+Tareas:
+□ Crear queries:
+  - useInventoryQuery(id) → GET /api/inventories/<id>/
+  - useProductsQuery(inventoryId, filters) → GET /api/products/?inventory=...
+□ En routes/_authenticated/inventories/$id.tsx:
+  - Header con:
+    · Nombre del inventario
+    · Plantilla usada
+    · Botón "Configurar Plantilla"
+    · Botón "Agregar Producto"
+  - Filtros (shadcn Input + Select):
+    · Búsqueda por nombre/SKU
+    · Filter por categoría
+    · Toggle "Solo stock bajo"
+  - Selector de vista: Tabla / Grid / Cards
+  - Implementar ProductTable component:
+    · Columnas: Imagen, Nombre, SKU, Cantidad, Precio, Categoría, Acciones
+    · Acciones: Editar (icono), Eliminar (icono)
+  - Paginación (shadcn Pagination)
+□ Implementar filtrado en tiempo real:
+  - Usar debounce en búsqueda (300ms)
+  - Update query params con TanStack Router
+  - TanStack Query re-fetches automáticamente
+□ Loading skeletons para tabla
+
+Criterio de aceptación:
+✓ Lista de productos filtra correctamente
+✓ Paginación funcional
+✓ Búsqueda con debounce
+✓ Vistas intercambiables (tabla/grid/cards)
+
+
+----------------------------------
+📅 DÍA 7 — Formulario dinámico de productos con TanStack Form
+----------------------------------
+Objetivo: Crear/editar productos con campos personalizados
+
+Tareas:
+□ Instalar TanStack Form:
+  bun add @tanstack/react-form zod @tanstack/zod-form-adapter
+□ Crear mutations:
+  - useCreateProductMutation() → POST /api/products/
+  - useUpdateProductMutation() → PUT /api/products/<id>/
+  - useDeleteProductMutation() → DELETE /api/products/<id>/
+□ Crear ProductForm component (reutilizable para crear/editar):
+  - Usar TanStack Form con validación Zod
+  - Campos estándar: nombre, SKU, cantidad, precio, categoría
+  - Renderizar campos dinámicos según template.custom_fields:
+    · type="text" → Input
+    · type="number" → Input type="number"
+    · type="select" → Select con options
+    · type="textarea" → Textarea
+    · Marcar required según template
+  - Implementar ImageUpload component:
+    · Preview de imagen actual
+    · Input file con drag & drop (opcional)
+    · Preview de nueva imagen antes de subir
+  - Validación tipada con Zod que incluye custom_fields
+□ Abrir formulario en Dialog al hacer clic en "Agregar Producto"
+□ Para editar:
+  - Pre-llenar formulario con datos existentes
+  - Cargar con useProductQuery(id)
+□ Al guardar:
+  - Enviar como FormData (para incluir imagen)
+  - Invalidar queries de productos
+  - Cerrar dialog
+  - Toast de éxito
+□ Confirmación antes de eliminar (AlertDialog)
+
+Criterio de aceptación:
+✓ Formulario renderiza campos dinámicos correctamente
+✓ Validaciones funcionan (incluye custom fields)
+✓ Crear y editar operan correctamente
+✓ Subida de imagen funciona
+✓ Eliminar pide confirmación
+
+
+================================================================================
+SEMANA 5 — PULIR UI Y FUNCIONALIDADES AVANZADAS
+================================================================================
+
+📅 DÍA 1 — ProductGrid y ProductCards views
+----------------------------------
+Objetivo: Vistas alternativas para productos
+
+Tareas:
+□ Crear ProductGrid component:
+  - Grid responsive (grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4)
+  - Cards compactas con: imagen, nombre, SKU, stock, precio
+  - Badges de estado: stock bajo (rojo), stock ok (verde)
+  - Hover effects
+  - Botones de acción (editar/eliminar) al hacer hover
+□ Crear ProductCards component:
+  - Cards verticales estilo e-commerce
+  - Imagen grande arriba
+  - Info abajo: nombre, categoría, precio destacado
+  - Stock y SKU en tipografía menor
+  - Botón "Ver detalles" (abre modal con toda la info)
+□ Implementar selector de vista en header de lista:
+  - Toggle buttons: Tabla / Grid / Cards
+  - Guardar preferencia en localStorage
+  - Restaurar al volver a entrar
+□ Asegurar que filtros y paginación funcionan en todas las vistas
+
+Criterio de aceptación:
+✓ 3 vistas funcionales: tabla, grid, cards
+✓ Preferencia persiste entre sesiones
+✓ Todas las acciones disponibles en todas las vistas
+✓ Responsive en mobile
+
+
+----------------------------------
+📅 DÍA 2 — Administrar plantilla del inventario
+----------------------------------
+Objetivo: Personalizar custom_fields
+
+Tareas:
+□ Crear mutation:
+  - useUpdateTemplateFieldsMutation() → PUT /api/inventories/<id>/custom-fields/
+□ Crear TemplateEditor component (Dialog):
+  - Lista de custom_fields actuales (editable)
+  - Cada campo muestra:
+    · Input para name
+    · Select para type (text, number, select, textarea, date)
+    · Checkbox para required
+    · Si type=select: textarea para options (una por línea)
+    · Botón eliminar campo
+  - Botón "Añadir Campo"
+  - Validar que no haya campos con mismo name
+  - Preview de cómo se verá el formulario
+□ Abrir desde botón "Configurar Plantilla" en vista de inventario
+□ Al guardar:
+  - Enviar estructura actualizada
+  - Invalidar queries
+  - Mostrar advertencia: "Productos existentes mantienen sus datos"
+  - Toast de éxito
+
+Criterio de aceptación:
+✓ Usuario puede añadir/editar/eliminar campos custom
+✓ Validaciones previenen configuraciones inválidas
+✓ Nuevos productos usan plantilla actualizada
+✓ UI intuitiva y clara
+
+
+----------------------------------
+📅 DÍA 3 — Página de Plantillas
+----------------------------------
+Objetivo: Explorar plantillas disponibles
+
+Tareas:
+□ Crear routes/_authenticated/templates/index.tsx
+□ Usar useTemplatesQuery()
+□ Grid de TemplateCard:
+  - Nombre y descripción
+  - Icono o imagen representativa (opcional)
+  - Lista de custom_fields en formato legible
+  - Badge con # de inventarios usando esta plantilla (opcional)
+  - Botón "Usar en nuevo inventario"
+□ Al hacer clic en "Usar":
+  - Navegar a crear inventario
+  - Pre-seleccionar esta plantilla
+  - TanStack Router: navigate({ to: '/inventories', search: { template: id } })
+□ Filtros opcionales: buscar por nombre
+□ Añadir a navegación principal
+
+Criterio de aceptación:
+✓ Plantillas listadas con info clara
+✓ Flujo de creación simplificado desde aquí
+✓ UI atractiva y profesional
+
+
+----------------------------------
+📅 DÍA 4 — Sistema de notificaciones y feedback
+----------------------------------
+Objetivo: Mejorar UX con feedback visual
+
+Tareas:
+□ Instalar Sonner: bun add sonner
+□ Configurar Toaster en __root.tsx
+□ Añadir toasts en:
+  - Login/registro exitoso
+  - Producto creado/editado/eliminado
+  - Inventario creado/editado/eliminado
+  - Errores de API (con mensaje específico)
+  - Guardado de configuraciones
+  - Límite de plan alcanzado (warning toast)
+□ Crear toast customizado para límite de plan:
+  - Color warning (amarillo/naranja)
+  - Mensaje: "Has alcanzado el límite de tu plan Free (100 productos)"
+  - Action button: "Mejorar plan" (por ahora solo visual)
+□ Implementar error boundaries para capturar errores de React
+□ Añadir animations con framer-motion (opcional):
+  bun add framer-motion
+  - Transiciones suaves entre vistas
+  - Animaciones de entrada para cards/modals
+
+Criterio de aceptación:
+✓ Todas las acciones importantes muestran feedback
+✓ Errores se comunican claramente
+✓ Toasts se auto-dismiss apropiadamente
+✓ UX se siente pulida y profesional
+
+
+----------------------------------
+📅 DÍA 5 — Loading states y skeletons
+----------------------------------
+Objetivo: Mejorar percepción de velocidad
+
+Tareas:
+□ Crear skeleton components con shadcn:
+  - InventoryCardSkeleton
+  - ProductTableSkeleton
+  - ProductGridSkeleton
+  - DashboardCardSkeleton
+□ Usar en cada componente:
+  const { data, isLoading } = useQuery(...)
+  if (isLoading) return <Skeleton />
+  if (!data) return <Empty />
+□ Optimistic updates con TanStack Query:
+  - Al crear producto, añadir temporalmente a la lista
+  - Al eliminar, remover inmediatamente (rollback si falla)
+  - Usar onMutate, onError, onSettled
+□ Deshabilitar botones durante mutaciones:
+  const { mutate, isPending } = useMutation(...)
+  <Button disabled={isPending}>
+    {isPending ? <Spinner /> : "Guardar"}
+  </Button>
+□ Progress bar global (opcional):
+  bun add nprogress
+  - Mostrar en top durante navegación
+
+Criterio de aceptación:
+✓ No hay pantallas blancas durante cargas
+✓ Skeletons match el layout final
+✓ Optimistic updates funcionan
+✓ Botones previenen double-submit
+
+
+----------------------------------
+📅 DÍA 6 — Responsive design completo
+----------------------------------
+Objetivo: Funcional en todos los dispositivos
+
+Tareas:
+□ Probar toda la app en DevTools responsive mode:
+  - Mobile: 375px, 414px
+  - Tablet: 768px, 1024px
+  - Desktop: 1280px, 1920px
+□ Ajustes necesarios:
+  - Header: menú hamburguesa en mobile (<768px)
+    · Crear MobileNav con Sheet de shadcn
+  - Tablas → Cards en mobile
+  - Modals → fullscreen en mobile
+  - Reducir padding/margins en mobile
+  - Aumentar tamaño de tap targets (min 44x44px)
+  - Ajustar font sizes (responsive con clamp o tailwind)
+□ Probar gestos touch:
+  - Swipe para eliminar (opcional, librería como react-swipeable)
+  - Pull to refresh (opcional)
+□ Optimizar imágenes:
+  - Usar srcset para diferentes tamaños
+  - Cloudinary transformations: f_auto,q_auto,w_300
+□ Añadir meta viewport en index.html
+
+Criterio de aceptación:
+✓ App usable en pantallas desde 320px
+✓ No hay scroll horizontal
+✓ Touch targets apropiados
+✓ Navegación móvil fluida
+
+
+----------------------------------
+📅 DÍA 7 — Detalles finales y pulido
+----------------------------------
+Objetivo: Terminar detalles de UX
+
+Tareas:
+□ Implementar página de perfil de usuario:
+  - GET /api/profile/
+  - Mostrar: nombre, email, plan actual
+  - Mostrar uso: X/100 productos, X/1 inventarios
+  - Progress bars para límites
+  - Botón "Mejorar plan" (preparar UI, funcionalidad en futuro)
+□ Empty states con ilustraciones:
+  - "No tienes inventarios aún" → CTA para crear primero
+  - "Este inventario está vacío" → CTA para agregar productos
+  - "No hay resultados" en búsquedas
+  - Usar lucide-react icons o ilustraciones simples
+□ Favicon personalizado (usa favicon.io)
+□ Actualizar document title dinámicamente por ruta:
+  - "Dashboard | InventoryApp"
+  - "Ferretería Centro | InventoryApp"
+□ Meta tags para SEO (aunque sea SaaS privado):
+  - description, og:image, etc.
+□ Añadir accesos por teclado:
+  - Ctrl+K para búsqueda global (opcional, librería cmdk)
+  - Esc para cerrar modals
+  - Enter para enviar formularios
+□ Implementar modo oscuro completo (probar en todos los componentes)
+□ Revisar contraste de colores (WCAG AA mínimo)
+
+Criterio de aceptación:
+✓ Empty states claros y útiles
+✓ Navegación por teclado funcional
+✓ Favicon y meta tags configurados
+✓ App se siente completa y profesional
+
+
+================================================================================
+SEMANA 6 — DEPLOY, DOCUMENTACIÓN Y DEMO
+================================================================================
+
+📅 DÍA 1 — Preparar backend para producción
+----------------------------------
+Objetivo: Backend listo para deploy
+
+Tareas:
+□ Crear requirements.txt actualizado:
+  pip freeze > requirements.txt
+□ Configurar settings.py para producción:
+  - Usar django-environ o python-decouple
+  - DEBUG = env.bool('DEBUG', default=False)
+  - ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
+  - SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True)
+  - SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+  - SESSION_COOKIE_SECURE = True
+  - CSRF_COOKIE_SECURE = True
+□ Configurar CORS:
+  pip install django-cors-headers
+  CORS_ALLOWED_ORIGINS = env.list('CORS_ORIGINS')
+□ Configurar WhiteNoise para static files:
+  pip install whitenoise
+  MIDDLEWARE: 'whitenoise.middleware.WhiteNoiseMiddleware'
+  STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+□ Crear .env.example con todas las variables:
+  SECRET_KEY=your-secret-key
+  DEBUG=False
+  DATABASE_URL=postgres://...
+  ALLOWED_HOSTS=api.tuapp.com
+  CORS_ORIGINS=https://tuapp.com
+  CLOUDINARY_CLOUD_NAME=...
+  CLOUDINARY_API_KEY=...
+  CLOUDINARY_API_SECRET=...
+□ Añadir .env a .gitignore
+□ Crear Procfile para Railway/Render:
+  web: gunicorn backend.wsgi --log-file -
+□ Instalar gunicorn: pip install gunicorn
+□ Actualizar requirements.txt
+
+Criterio de aceptación:
+✓ Settings configurable por variables de entorno
+✓ Archivos de deploy creados (Procfile, requirements.txt)
+✓ .env.example documentado
+✓ Backend corre localmente con DEBUG=False (probar)
+
+
+----------------------------------
+📅 DÍA 2 — Deploy backend en Railway
+----------------------------------
+Objetivo: Backend en producción
+
+Tareas:
+□ Crear cuenta en Railway.app (GitHub login)
+□ Crear nuevo proyecto: "New Project" → "Deploy from GitHub repo"
+□ Seleccionar tu repo de backend
+□ Railway detecta Django automáticamente
+□ Añadir PostgreSQL:
+  - Click "New" → "Database" → "PostgreSQL"
+  - Railway auto-genera DATABASE_URL
+□ Configurar variables de entorno en Railway:
+  - SECRET_KEY (generar uno nuevo: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())")
+  - DEBUG=False
+  - ALLOWED_HOSTS=${{RAILWAY_PUBLIC_DOMAIN}}
+  - CORS_ORIGINS=https://tu-frontend-url.vercel.app
+  - CLOUDINARY_* (copiar de tu .env local)
+□ Deploy automático (trigger on push to main)
+□ Esperar build (3-5 minutos)
+□ Ejecutar migraciones:
+  - Railway CLI o dashboard: railway run python manage.py migrate
+□ Crear superuser:
+  - railway run python manage.py createsuperuser
+□ Correr seed data:
+  - railway run python manage.py seed_data
+□ Verificar: abrir URL pública → /api/ debe responder
+□ Probar /admin con superuser
+
+Criterio de aceptación:
+✓ Backend accesible públicamente
+✓ Base de datos funcional
+✓ Migraciones aplicadas
+✓ Datos de prueba cargados
+✓ API responde correctamente
+
+
+----------------------------------
+📅 DÍA 3 — Deploy frontend en Vercel
+----------------------------------
+Objetivo: Frontend en producción
+
+Tareas:
+□ Crear cuenta en Vercel (GitHub login)
+□ Preparar frontend para producción:
+  - Actualizar .env.production:
+    VITE_API_URL=https://tu-backend.railway.app
+  - Build local para probar:
+    bun run build
+    bun run preview
+  - Verificar que no hay errores
+□ Nuevo proyecto en Vercel:
+  - "Add New" → "Project"
+  - Importar repo de frontend
+  - Framework Preset: Vite
+  - Build Command: bun run build (Vercel soporta Bun)
+  - Output Directory: dist
+  - Install Command: bun install
+□ Configurar variables de entorno en Vercel:
+  - VITE_API_URL=https://tu-backend.railway.app
+□ Deploy
+□ Esperar (1-2 minutos)
+□ Verificar: abrir URL de Vercel
+□ Probar flujo completo:
+  - Registrarse → Login → Crear inventario → Agregar producto
+□ Arreglar errores de CORS si aparecen:
+  - Volver a Railway y añadir URL de Vercel a CORS_ORIGINS
+  - Redeploy backend (automático al cambiar env vars)
+
+Criterio de aceptación:
+✓ Frontend accesible públicamente
+✓ Se conecta al backend en Railway
+✓ No hay errores de CORS
+✓ Flujo completo funcional
+
+
+----------------------------------
+📅 DÍA 4 — Migrar DB a Supabase (opcional)
+----------------------------------
+Objetivo: Base de datos en Supabase (mejor para portfolio)
+
+Tareas:
+□ Crear cuenta en Supabase.com
+□ Crear nuevo proyecto
+□ Obtener connection string:
+  - Project Settings → Database
+  - Connection string (URI)
+□ Exportar datos de Railway:
+  railway run python manage.py dumpdata > backup.json
+□ Actualizar DATABASE_URL en Railway a Supabase
+□ Correr migraciones en Supabase:
+  railway run python manage.py migrate
+□ Importar datos:
+  railway run python manage.py loaddata backup.json
+□ Verificar que todo funciona
+□ Opcional: configurar backups automáticos en Supabase
+□ Opcional: usar Supabase Storage en lugar de Cloudinary
+  (pero Cloudinary tiene mejor optimización, decide según preferencia)
+
+Criterio de aceptación:
+✓ DB migrada exitosamente
+✓ Datos preservados
+✓ App funciona igual que antes
+✓ Supabase dashboard muestra las tablas
+
+
+----------------------------------
+📅 DÍA 5 — CI/CD con GitHub Actions
+----------------------------------
+Objetivo: Automatizar tests y deploy
+
+Tareas:
+□ Crear .github/workflows/backend-tests.yml:
+  name: Backend Tests
+  on: [push, pull_request]
+  jobs:
+    test:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v3
+        - uses: actions/setup-python@v4
+          with:
+            python-version: '3.11'
+        - name: Install dependencies
+          run: |
+            pip install -r requirements.txt
+        - name: Run tests
+          run: |
+            python manage.py test
+          env:
+            DATABASE_URL: postgresql://localhost/test_db
+            SECRET_KEY: test-secret-key-for-ci
+□ Crear .github/workflows/frontend-build.yml:
+  name: Frontend Build
+  on: [push, pull_request]
+  jobs:
+    build:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v3
+        - uses: oven-sh/setup-bun@v1
+        - run: bun install
+        - run: bun run build
+□ Configurar auto-deploy:
+  - Railway y Vercel ya lo tienen por defecto en main branch
+  - Configurar para que solo deploy si tests pasan (branch protection)
+□ Hacer commit y push de workflows
+□ Verificar que Actions corren en GitHub
+□ Arreglar si algún test falla en CI
+
+Criterio de aceptación:
+✓ Tests corren automáticamente en cada push
+✓ Badge de CI en README (opcional)
+✓ Deploy automático tras tests exitosos
+✓ Pipeline funcional
+
+
+----------------------------------
+📅 DÍA 6 — Documentación completa
+----------------------------------
+Objetivo: README profesional y docs
+
+Tareas:
+□ Actualizar README.md principal (root del repo):
+  # 📦 InventoryApp - SaaS de Gestión de Inventarios
+
+  ## 🚀 Demo
+  - **Frontend:** https://tu-app.vercel.app
+  - **API Docs:** https://tu-api.railway.app/api/
+  - **Video Demo:** [YouTube link]
+
+  **Credenciales de prueba:**
+  - Email: demo@inventario.com
+  - Password: Demo123!
+
+  ## 📋 Descripción
+  SaaS moderno para gestión de inventarios con plantillas personalizables...
+
+  ## ✨ Características
+  - 🔐 Autenticación JWT
+  - 📊 Dashboard con métricas en tiempo real
+  - 🎨 Plantillas dinámicas por tipo de negocio
+  - 📱 Diseño responsive (móvil, tablet, desktop)
+  - 🖼️ Gestión de imágenes con Cloudinary
+  - 📥 Exportación a CSV
+  - 🔍 Filtros y búsqueda avanzada
+  - ⚡ Rendimiento optimizado con TanStack Query
+
+  ## 🛠️ Stack Tecnológico
+  **Backend:**
+  - Django 5.0 + Django REST Framework
+  - PostgreSQL
+  - JWT Authentication
+  - Cloudinary (imágenes)
+
+  **Frontend:**
+  - React 18 + TypeScript
+  - TanStack Router (file-based routing)
+  - TanStack Query (server state)
+  - TanStack Form (validaciones)
+  - shadcn/ui + Tailwind CSS
+  - Bun (package manager)
+
+  **Deploy:**
+  - Railway (backend + PostgreSQL)
+  - Vercel (frontend)
+  - GitHub Actions (CI/CD)
+
+  ## 🏃‍♂️ Instalación Local
+
+  ### Backend
+  ```bash
+  cd backend
+  python -m venv venv
+  source venv/bin/activate  # Windows: venv\Scripts\activate
+  pip install -r requirements.txt
+  cp .env.example .env  # Configurar variables
+  python manage.py migrate
+  python manage.py seed_data
+  python manage.py runserver
+  ```
+
+  ### Frontend
+  ```bash
+  cd frontend
+  bun install
+  cp .env.example .env.local  # Configurar VITE_API_URL
+  bun run dev
+  ```
+
+  ## 📚 Documentación
+  - [API Documentation](./docs/API.md)
+  - [Database Schema](./docs/DATABASE.md)
+  - [Deployment Guide](./docs/DEPLOY.md)
+
+  ## 🧪 Tests
+  ```bash
+  # Backend
+  python manage.py test
+
+  # Frontend
+  bun test
+  ```
+
+  ## 🗺️ Roadmap
+  - [ ] App móvil nativa (React Native)
+  - [ ] Integración de pagos (Stripe/Mercado Pago)
+  - [ ] Multi-tenancy
+  - [ ] Notificaciones por email
+  - [ ] Escáner de códigos de barras
+  - [ ] OCR para facturas
+  - [ ] Exportación a Excel
+  - [ ] Roles y permisos avanzados
+
+  ## 📄 Licencia
+  MIT
+
+  ## 👤 Autor
+  **Andrés [Tu Apellido]**
+  - GitHub: [@tu-usuario](https://github.com/tu-usuario)
+  - LinkedIn: [Tu perfil](https://linkedin.com/in/tu-perfil)
+  - Portfolio: [tu-portfolio.com](https://tu-portfolio.com)
+
+□ Crear docs/API.md con documentación completa de endpoints
+□ Crear docs/DATABASE.md con diagrama de modelos
+□ Crear docs/DEPLOY.md con instrucciones detalladas
+□ Añadir screenshots a docs/screenshots/
+□ Crear CHANGELOG.md con versiones
+□ Crear CONTRIBUTING.md (si open source)
+
+Criterio de aceptación:
+✓ README profesional y completo
+✓ Cualquiera puede clonar y correr localmente
+✓ Documentación clara de API
+✓ Screenshots incluidas
+
+
+----------------------------------
+📅 DÍA 7 — Video demo y portfolio
+----------------------------------
+Objetivo: Material para mostrar en entrevistas
+
+Tareas:
+□ Grabar video demo (60-90 segundos):
+  Guión sugerido:
+  0:00-0:10 - Intro: "SaaS de inventarios con plantillas dinámicas"
+  0:10-0:20 - Login/registro rápido
+  0:20-0:35 - Crear inventario seleccionando plantilla (ej: Ferretería)
+  0:35-0:50 - Agregar 2 productos mostrando campos custom
+  0:50-1:05 - Dashboard con métricas y gráficas
+  1:05-1:20 - Filtros y vistas diferentes
+  1:20-1:30 - Personalizar plantilla añadiendo campo
+  1:30-1:45 - Crear producto con nuevo campo
+  1:45-1:60 - Versión móvil (responsive)
+  1:60-1:90 - Outro: stack tecnológico + links
+
+  Herramientas:
+  - OBS Studio (gratis, open source)
+  - Loom (fácil, pero watermark en free)
+  - ScreenRec (simple)
+
+  Tips:
+  - Usar datos de ejemplo atractivos
+  - Velocidad 1.5x para mostrar más
+  - Música de fondo sutil (opcional)
+  - Subtítulos (opcional pero recomendado)
+
+□ Editar video:
+  - Cortar partes lentas
+  - Añadir texto overlay con stack al final
+  - Exportar en 1080p
+
+□ Subir video:
+  - YouTube (no listado) o Loom
+  - Añadir título: "InventoryApp - SaaS con Django + React + TanStack"
+  - Descripción con links
+  - Thumbnail atractivo (Canva)
+
+□ Actualizar portfolio personal:
+  - Sección destacada con este proyecto
+  - Descripción breve
+  - Links: repo, demo, video
+  - Badges de tecnologías (shields.io)
+  - Capturas de pantalla
+
+□ Crear post en LinkedIn:
+  Ejemplo:
+  "🚀 Acabo de lanzar mi proyecto más ambicioso: un SaaS completo de
+  gestión de inventarios con plantillas personalizables.
+
+  El desafío técnico más interesante fue implementar formularios dinámicos
+  que cambian según el tipo de negocio del usuario (una ferretería necesita
+  campos diferentes a una tienda de ropa).
+
+  Stack:
+  • Backend: Django + DRF + PostgreSQL
+  • Frontend: React + TypeScript + TanStack Router/Query
+  • Deploy: Railway + Vercel
+  • CI/CD: GitHub Actions
+
+  Features principales:
+  ✅ Auth JWT
+  ✅ Dashboard con métricas en tiempo real
+  ✅ Plantillas dinámicas por industria
+  ✅ Gestión de imágenes con Cloudinary
+  ✅ Filtros avanzados y exportación
+  ✅ Responsive design completo
+
+  🔗 Demo: [link]
+  📹 Video: [link]
+  💻 Código: [link]
+
+  ¿Qué opinan? ¿Qué features añadirían?
+
+  #Django #React #FullStack #WebDevelopment #TanStack"
+
+  Adjuntar: GIF animado del dashboard o screenshot atractivo
+
+□ Opcional - Escribir artículo técnico (Medium/Dev.to):
+  Título: "Cómo construí un SaaS con formularios dinámicos usando
+  Django y TanStack"
+
+  Secciones:
+  1. Introducción y motivación
+  2. Arquitectura general
+  3. Desafío: Formularios dinámicos
+     - Backend: JSONField + validaciones
+     - Frontend: TanStack Form + Zod dinámico
+  4. TanStack Router vs React Router
+  5. TanStack Query para server state
+  6. Cloudinary para imágenes
+  7. Deploy y CI/CD
+  8. Lecciones aprendidas
+  9. Próximos pasos
+
+  Esto genera MUCHA visibilidad y demuestra expertise
+
+Criterio de aceptación:
+✓ Video demo profesional subido y enlazado
+✓ Portfolio actualizado con proyecto destacado
+✓ Post en LinkedIn publicado
+✓ Repo pulido y listo para compartir
+✓ Material completo para entrevistas
+
+
+================================================================================
+EXTRAS POST-MVP (SI TE SOBRA TIEMPO O PARA V2)
+================================================================================
+
+NIVEL 1 - Rápido de implementar (1-2 días cada uno):
+----------------------------------------------------
+□ Exportar a Excel (además de CSV)
+  - pip install openpyxl
+  - Endpoint adicional con format=xlsx
+
+□ Modo oscuro completo
+  - Probar todos los componentes en dark mode
+  - Toggle persiste en localStorage
+
+□ Búsqueda global (Cmd+K)
+  - Instalar cmdk: bun add cmdk
+  - Buscar productos, inventarios, plantillas
+  - Shortcuts de teclado
+
+□ Historial de cambios por producto
+  - Vista de timeline con movimientos
+  - "Ver historial" en detalle de producto
+
+□ Imprimir reportes con estilos
+  - CSS específico para print
+  - Botón "Imprimir" en vistas de inventario
+
+□ Categorías predefinidas
+  - Modelo Category con iconos
+  - Autocompletar al escribir categoría
+
+□ Dashboard personalizable
+  - Drag & drop para reorganizar widgets
+  - Mostrar/ocultar métricas
+
+NIVEL 2 - Mediano esfuerzo (3-5 días cada uno):
+------------------------------------------------
+□ Notificaciones por email
+  - Integrar SendGrid o Resend
+  - Alertas de stock bajo automáticas
+  - Resumen semanal
+
+□ Roles de usuario
+  - Admin, Manager, Employee, Viewer
+  - Permisos por rol
+  - Invitar usuarios a inventario
+
+□ Multi-tenant
+  - Modelo Organization
+  - Múltiples negocios por cuenta
+  - Cambiar entre organizaciones
+
+□ API pública
+  - API Keys para integraciones
+  - Rate limiting
+  - Documentación Swagger/Redoc
+
+□ Importar desde CSV/Excel
+  - Upload file
+  - Mapear columnas
+  - Validar y preview antes de importar
+
+□ Webhooks
+  - Notificar eventos a URLs externas
+  - Configurar por usuario
+  - Logs de webhooks
+
+□ Modo offline (PWA)
+  - Service Worker
+  - Cache con Workbox
+  - Sync cuando vuelve conexión
+
+NIVEL 3 - Proyectos complejos (1-2 semanas cada uno):
+------------------------------------------------------
+□ Pagos con Stripe/Mercado Pago
+  - Suscripciones mensuales
+  - Upgrade/downgrade de planes
+  - Billing history
+  - Webhooks de pagos
+
+□ App móvil nativa
+  - React Native o Flutter
+  - Sincronización con backend
+  - Notificaciones push
+  - Escanear códigos de barras
+
+□ OCR de facturas
+  - Tesseract.js o API de Google Vision
+  - Extraer: nombre, precio, cantidad
+  - Crear productos automáticamente
+
+□ Panel de admin avanzado
+  - Ver todas las cuentas
+  - Métricas globales
+  - Gestionar suscripciones
+  - Feature flags
+
+□ Integraciones externas
+  - Shopify, WooCommerce
+  - QuickBooks para contabilidad
+  - APIs de logística
+
+□ IA para predicciones
+  - Predecir cuando se agotará stock
+  - Sugerir reorden automático
+  - Detectar anomalías en movimientos
+
+□ Sistema de backups automáticos
+  - Programar backups diarios
+  - Restaurar desde backup
+  - Almacenar en S3
+
+□ Monitoreo avanzado
+  - Sentry para errores
+  - LogRocket para sesiones
+  - Grafana para métricas
+
+
+================================================================================
+CHECKLIST FINAL ANTES DE APLICAR A TRABAJOS
+================================================================================
+
+BACKEND:
+□ ✅ Backend desplegado y funcionando (Railway/Render)
+□ ✅ Base de datos en producción (Railway/Supabase)
+□ ✅ API responde correctamente a todas las rutas
+□ ✅ Autenticación JWT funcional
+□ ✅ Imágenes en Cloudinary
+□ ✅ CORS configurado correctamente
+□ ✅ Variables de entorno documentadas
+□ ✅ Al menos 8-10 tests unitarios pasando
+□ ✅ Migraciones aplicadas sin errores
+□ ✅ Datos de prueba (seed) cargados
+
+FRONTEND:
+□ ✅ Frontend desplegado y funcionando (Vercel)
+□ ✅ Se conecta al backend en producción
+□ ✅ Todas las rutas funcionan
+□ ✅ Login/registro operativos
+□ ✅ CRUD completo de productos e inventarios
+□ ✅ Dashboard con métricas y gráficas
+□ ✅ Formularios dinámicos funcionando
+□ ✅ Subida de imágenes operativa
+□ ✅ Filtros y búsqueda funcionan
+□ ✅ Sin errores en consola del navegador
+□ ✅ Responsive en mobile, tablet, desktop
+□ ✅ Loading states implementados
+□ ✅ Toasts de feedback funcionando
+□ ✅ Modo oscuro funcional (opcional)
+
+INFRAESTRUCTURA:
+□ ✅ HTTPS configurado (Railway y Vercel lo dan gratis)
+□ ✅ CI/CD con GitHub Actions
+□ ✅ Tests corren automáticamente en push
+□ ✅ Deploy automático configurado
+□ ✅ Logs accesibles para debugging
+
+DOCUMENTACIÓN:
+□ ✅ README completo y profesional
+□ ✅ API documentada con ejemplos
+□ ✅ Instrucciones de instalación local claras
+□ ✅ Screenshots incluidas (al menos 4-5)
+□ ✅ Diagrama de arquitectura (opcional pero valioso)
+□ ✅ CHANGELOG con versiones
+□ ✅ .env.example con todas las variables
+
+DEMO:
+□ ✅ Usuario demo creado: demo@inventario.com / Demo123!
+□ ✅ Datos de ejemplo variados y realistas
+□ ✅ Video demo de 60-90 segundos
+□ ✅ Link al demo en vivo en README
+□ ✅ Link al video en README y LinkedIn
+
+PORTFOLIO:
+□ ✅ Proyecto destacado en portfolio personal
+□ ✅ Descripción clara del desafío técnico resuelto
+□ ✅ Badges de tecnologías usadas
+□ ✅ Links a repo, demo, video
+□ ✅ Post en LinkedIn publicado
+
+CÓDIGO:
+□ ✅ .env en .gitignore
+□ ✅ Código limpio y comentado donde necesario
+□ ✅ No hay secretos hardcodeados
+□ ✅ Commits con mensajes claros
+□ ✅ Branches organizadas (opcional: feature branches)
+
+
+================================================================================
+CÓMO PRESENTAR EN CV Y ENTREVISTAS
+================================================================================
+
+EN TU CV:
+---------
+SaaS de Gestión de Inventarios | Django + React + TanStack + PostgreSQL
+[GitHub] [Demo] [Video]
+
+• Desarrollé un sistema multi-tenant de gestión de inventarios con plantillas
+  dinámicas adaptables a diferentes tipos de negocio (ferretería, ropa,
+  farmacia, restaurante, etc.)
+• Implementé autenticación JWT, CRUD completo, dashboard con métricas en
+  tiempo real, filtros avanzados, exportación de reportes y gestión de imágenes
+• Diseñé formularios dinámicos que se adaptan según la plantilla de negocio
+  seleccionada, permitiendo campos personalizados validados por industria
+• Stack: Django REST Framework, React + TypeScript, TanStack Router/Query/Form,
+  PostgreSQL, Cloudinary, Railway, Vercel
+• Incluye tests unitarios, CI/CD con GitHub Actions, documentación completa
+  de API, diseño responsive y optimizado para performance
+
+Métricas (si las tienes):
+• 15+ endpoints RESTful
+• 100+ productos en demo
+• < 500ms tiempo de respuesta promedio
+• Coverage de tests > 60%
+
+
+EN ENTREVISTAS - PREGUNTAS COMUNES:
+------------------------------------
+
+P: "Cuéntame sobre tu proyecto más reciente"
+R: "Construí un SaaS completo de inventarios con una característica única:
+   plantillas dinámicas. La idea es que diferentes negocios necesitan diferentes
+   campos. Una ferretería necesita 'medida del tornillo', pero una tienda de
+   ropa necesita 'talla' y 'color'. Implementé un sistema donde el usuario
+   selecciona su tipo de negocio y el formulario se adapta automáticamente.
+
+   El desafío técnico fue validar estos campos dinámicos tanto en backend
+   (Django con JSONField) como en frontend (TanStack Form con Zod dinámico).
+
+   El resultado es que con el mismo código puedo servir a ferreterías,
+   tiendas de ropa, farmacias, todos con sus necesidades específicas."
+
+P: "¿Por qué elegiste TanStack sobre otras librerías?"
+R: "TanStack Router me atrajo por file-based routing similar a Next.js pero
+   con más control. Y TanStack Query porque elimina muchísimo boilerplate
+   comparado con Redux: manejo automático de loading/error states, caching,
+   refetching, optimistic updates... todo out-of-the-box.
+
+   Además está en auge y quería experimentar con herramientas modernas.
+   El resultado fue menos código y mejor developer experience."
+
+P: "¿Cuál fue el mayor desafío técnico?"
+R: "Sincronizar las validaciones entre backend y frontend para los campos
+   dinámicos. Si el usuario agrega un campo 'talla' requerido, el backend
+   debe validarlo, pero el frontend también debe mostrar error antes de enviar.
+
+   Lo resolví con un esquema JSON común que ambos leen: el backend valida
+   contra custom_fields del template, y el frontend genera un schema de Zod
+   dinámicamente en runtime basado en el mismo JSON.
+
+   También optimizar queries fue clave: con select_related y prefetch_related
+   bajé de 20+ queries a 3 queries por request en algunos endpoints."
+
+P: "¿Cómo manejaste el deploy?"
+R: "Usé Railway para backend porque su integración con PostgreSQL es excelente
+   y Vercel para frontend por su velocidad. Configuré CI/CD con GitHub Actions:
+   los tests corren automáticamente y solo se deploya si pasan.
+
+   Para imágenes usé Cloudinary en lugar de guardar en BD o filesystem porque
+   incluye CDN, optimización automática y transformaciones on-the-fly. Además
+   su plan free es generoso para un portfolio."
+
+P: "¿Qué harías diferente si lo hicieras de nuevo?"
+R: "Empezaría con tests desde el día 1, no al final de la semana. También
+   consideraría Next.js para el frontend porque el SSR puede mejorar el SEO
+   si eventualmente quiero que sea público.
+
+   Y añadiría feature flags desde el inicio para poder activar/desactivar
+   funcionalidades sin redeployar."
+
+P: "¿Cuáles son los próximos pasos para este proyecto?"
+R: "Tres cosas: primero, integrar Stripe para que sea un SaaS real con pagos.
+   Segundo, una app móvil con React Native que incluya escáner de códigos de
+   barras. Y tercero, OCR para crear productos automáticamente desde fotos
+   de facturas usando Tesseract o la API de Google Vision."
+
+
+STORYTELLING PARA LINKEDIN/NETWORKING:
+---------------------------------------
+"Construí este SaaS porque noté que las soluciones de inventario son o muy
+genéricas (sirven para todo pero no son ideales para nada) o muy específicas
+(perfectas para un negocio pero imposibles de adaptar).
+
+Mi solución es un término medio: plantillas personalizables. Empiezas con
+una plantilla para tu industria, pero puedes ajustarla a tu negocio específico.
+
+Lo interesante fue implementar formularios que cambian dinámicamente. Usé
+TanStack Form con Zod para generar schemas en runtime, validando contra
+la estructura que viene del backend.
+
+El resultado: un sistema flexible que puede crecer con el negocio del usuario."
+
+
+================================================================================
+RECURSOS ADICIONALES Y REFERENCIAS
+================================================================================
+
+DOCUMENTACIÓN OFICIAL:
+----------------------
+• Django: https://docs.djangoproject.com/
+• DRF: https://www.django-rest-framework.org/
+• TanStack Router: https://tanstack.com/router/latest
+• TanStack Query: https://tanstack.com/query/latest
+• TanStack Form: https://tanstack.com/form/latest
+• shadcn/ui: https://ui.shadcn.com/
+• Cloudinary: https://cloudinary.com/documentation
+
+TUTORIALES ÚTILES:
+------------------
+• TanStack Router Getting Started:
+  https://tanstack.com/router/latest/docs/framework/react/quick-start
+• Django REST Framework Tutorial:
+  https://www.django-rest-framework.org/tutorial/quickstart/
+• shadcn/ui + TanStack Router:
+  Buscar en GitHub repos ejemplo
+
+HERRAMIENTAS DE DESARROLLO:
+----------------------------
+• Thunder Client (VS Code extension) - probar APIs
+• Django Debug Toolbar - optimizar queries
+• React DevTools - debugging
+• TanStack DevTools - ver queries y router
+• Postman - documentar APIs
+• DB Browser for SQLite - explorar DB local
+
+COMUNIDADES:
+------------
+• Discord de TanStack: https://discord.com/invite/tanstack
+• r/django: https://reddit.com/r/django
+• r/reactjs: https://reddit.com/r/reactjs
+• Django Developers: grupo de Facebook
+• Stack Overflow para preguntas específicas
+
+
+================================================================================
+TIPS FINALES Y MOTIVACIONALES
+================================================================================
+
+🎯 MENTALIDAD:
+--------------
+• Progreso > Perfección: Un demo funcional vale más que código perfecto sin deploy
+• Documenta mientras avanzas: No dejes toda la documentación para el final
+• Commit frecuentemente: "WIP: formulario de productos" es válido
+• No te compares: Tu primera versión no tiene que competir con productos con años de desarrollo
+
+⏰ GESTIÓN DE TIEMPO:
+--------------------
+• Usa Pomodoro: 25 min foco + 5 min descanso
+• Si te trabas 2+ horas en algo: déjalo, sigue con otra tarea, vuelve después
+• Prioriza "end-to-end working" sobre features extra
+• Sábado o domingo descansa completamente: vuelves con más energía
+
+🚀 PARA NO ABANDONAR:
+--------------------
+• Celebra cada milestone: "¡Mi API ya autentica!" merece una celebración
+• Muestra avances: comparte screenshots aunque sea "work in progress"
+• Recuerda el objetivo: este proyecto puede abrirte puertas
+• Si un día no avanzas mucho: está bien, 20 minutos de código es mejor que 0
+
+💼 ESTRATEGIA LABORAL:
+---------------------
+• Empieza a aplicar a trabajos ANTES de terminar al 100%
+• Usa este proyecto en tu portfolio desde el día que tengas el MVP
+• En entrevistas, enfócate en el PROCESO y DECISIONES, no solo el resultado
+• "Estoy trabajando en la versión 2.0 que incluirá X" demuestra que sigues aprendiendo
+
+🎓 LEARNING GOALS:
+------------------
+Al terminar este proyecto habrás aprendido:
+✓ Arquitectura de APIs RESTful
+✓ Autenticación y autorización
+✓ Diseño de bases de datos relacionales
+✓ Server state management moderno
+✓ Formularios dinámicos complejos
+✓ File-based routing
+✓ Optimización de performance
+✓ Deploy y CI/CD
+✓ Documentación técnica
+
+Esto es MÁS valioso que 10 tutoriales seguidos. Tienes algo TUYO que demuestra
+que puedes construir productos reales.
+
+
+================================================================================
+SIGUIENTE PASO INMEDIATO
+================================================================================
+
+Ahora mismo:
+1. Lee esta planificación completa
+2. Crea un checklist en Notion/Trello/GitHub Projects
+3. Empieza con Semana 1, Día 1
+4. Commit al final de cada día con mensaje: "Week 1 Day 1: Django setup complete"
+5. Si algo no queda claro, busca documentación específica o pregunta en comunidades
+
+No procrastines con "leer más planificaciones" o "buscar el stack perfecto".
+Este plan es sólido. EMPIEZA.
+
+Tu yo del futuro en una entrevista te lo agradecerá.
+
+¡Éxito, Andrés! 🚀💪
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================
