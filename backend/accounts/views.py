@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import RegisterSerializer, UserProfileSerializer
 from .models import User
+from inventory.utils import get_user_usage
 
 class RegisterView(APIView):
     """
@@ -95,3 +96,28 @@ class ProfileView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UsageView(APIView):
+    """
+    Endpoint para obtener el uso actual del usuario comparado con los límites de su plan.
+
+    GET /api/user/usage/
+
+    Retorna:
+    {
+        "plan": "free",
+        "plan_description": "Plan gratuito con límites básicos",
+        "products_count": 45,
+        "products_limit": 100,
+        "products_remaining": 55,
+        "inventories_count": 1,
+        "inventories_limit": 1,
+        "inventories_remaining": 0
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        usage_data = get_user_usage(request.user)
+        return Response(usage_data, status=status.HTTP_200_OK)

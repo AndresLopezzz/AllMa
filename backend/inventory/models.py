@@ -1,5 +1,7 @@
 from django.db import models
 from django.conf import settings
+from django.core.validators import MinValueValidator
+from decimal import Decimal
 
 
 class BusinessTemplate(models.Model):
@@ -115,11 +117,13 @@ class Product(models.Model):
     # Datos numéricos
     quantity = models.IntegerField(
         default=0,
+        validators=[MinValueValidator(0)],
         help_text="Cantidad disponible en stock"
     )
     price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
         help_text="Precio del producto"
     )
     low_stock_threshold = models.IntegerField(
@@ -149,6 +153,12 @@ class Product(models.Model):
         help_text="Datos personalizados según la plantilla del inventario (ej: marca, talla, color)"
     )
 
+    # Estado
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Si es False, el producto está eliminado (soft delete)"
+    )
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -167,6 +177,11 @@ class Product(models.Model):
     def is_low_stock(self):
         """Indica si el producto tiene stock bajo"""
         return self.quantity <= self.low_stock_threshold
+
+    @property
+    def is_out_of_stock(self):
+        """Indica si el producto no tiene stock"""
+        return self.quantity == 0
 
     @property
     def stock_status(self):

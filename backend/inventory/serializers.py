@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import BusinessTemplate, Inventory, Product
+from .utils import get_effective_template, validate_custom_fields_structure
+from .constants import ERROR_MESSAGES
 
 
 class BusinessTemplateSerializer(serializers.ModelSerializer):
@@ -122,12 +124,14 @@ class InventoryDetailSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     """
     Serializer para productos.
-    Incluye campos calculados como stock_status.
+    Incluye campos calculados como stock_status y template_info.
+    Valida custom_data contra los custom_fields del template del inventario.
     """
     stock_status = serializers.CharField(read_only=True)
     is_low_stock = serializers.BooleanField(read_only=True)
     is_out_of_stock = serializers.BooleanField(read_only=True)
     inventory_name = serializers.CharField(source='inventory.name', read_only=True)
+    template_info = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Product
@@ -142,14 +146,23 @@ class ProductSerializer(serializers.ModelSerializer):
             'inventory',
             'inventory_name',
             'custom_data',
+            'template_info',
             'low_stock_threshold',
             'stock_status',
             'is_low_stock',
             'is_out_of_stock',
+            'is_active',
             'created_at',
             'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_template_info(self, obj):
+        """
+        Devuelve los custom_fields efectivos del inventario.
+        Usa get_effective_template para priorizar custom_template_fields.
+        """
+        return get_effective_template(obj.inventory)
 
     def validate_sku(self, value):
         """
@@ -172,6 +185,155 @@ class ProductSerializer(serializers.ModelSerializer):
             )
 
         return value
+
+    def validate_quantity(self, value):
+        """
+        Valida que la cantidad sea mayor o igual a 0.
+        """
+        if value < 0:
+            raise serializers.ValidationError(
+                ERROR_MESSAGES['quantity_negative']
+            )
+        return value
+
+    def validate_price(self, value):
+        """
+        Valida que el precio sea mayor a 0.
+        """
+        if value <= 0:
+            raise serializers.ValidationError(
+                ERROR_MESSAGES['price_invalid']
+            )
+        return value
+
+    def validate_custom_data(self, value):
+        """
+        Valida que custom_data cumpla con la estructura definida en
+        template.custom_fields del inventario.
+        """
+        if not value:
+            return value
+
+        # Obtener el inventario
+        inventory_id = self.initial_data.get('inventory')
+        if not inventory_id:
+            raise serializers.ValidationError(
+                "Debe especificar un inventario para validar custom_data"
+            )
+
+        try:
+            inventory = Inventory.objects.select_related('template').get(id=inventory_id)
+        except Inventory.DoesNotExist:
+            raise serializers.ValidationError("El inventario especificado no existe")
+
+        # Obtener los custom_fields efectivos (prioriza custom_template_fields)
+        template_fields = get_effective_template(inventory)
+
+        # Si el template no tiene custom_fields, pero se envían datos, es un error
+        if not template_fields and value:
+            raise serializers.ValidationError(
+                "Este inventario no acepta campos personalizados"
+            )
+
+        # template_fields puede ser dict o list
+        if isinstance(template_fields, dict):
+            # Formato dict: {"campo": {"type": "text", "required": true}}
+            for field_name, field_def in template_fields.items():
+                field_type = field_def.get('type')
+                field_required = field_def.get('required', False)
+
+                # Verificar si el campo requerido está presente
+                if field_required and field_name not in value:
+                    raise serializers.ValidationError(
+                        f"El campo '{field_name}' es requerido según el template"
+                    )
+
+                # Si el campo está presente, validar su tipo
+                if field_name in value:
+                    field_value = value[field_name]
+
+                    # Validar según el tipo
+                    if field_type == 'number':
+                        if not isinstance(field_value, (int, float)):
+                            try:
+                                float(field_value)
+                            except (ValueError, TypeError):
+                                raise serializers.ValidationError(
+                                    f"El campo '{field_name}' debe ser un número"
+                                )
+
+                    elif field_type == 'checkbox':
+                        if not isinstance(field_value, bool):
+                            raise serializers.ValidationError(
+                                f"El campo '{field_name}' debe ser true o false"
+                            )
+
+                    elif field_type == 'select':
+                        # Validar que el valor esté en las opciones
+                        options = field_def.get('options', [])
+                        if field_value not in options:
+                            raise serializers.ValidationError(
+                                f"El campo '{field_name}' debe ser uno de: {', '.join(options)}"
+                            )
+        elif isinstance(template_fields, list):
+            # Formato list: [{"name": "campo", "type": "text", "required": true}]
+            for field_def in template_fields:
+                field_name = field_def.get('name')
+                field_type = field_def.get('type')
+                field_required = field_def.get('required', False)
+
+                # Verificar si el campo requerido está presente
+                if field_required and field_name not in value:
+                    raise serializers.ValidationError(
+                        f"El campo '{field_name}' es requerido según el template"
+                    )
+
+                # Si el campo está presente, validar su tipo
+                if field_name in value:
+                    field_value = value[field_name]
+
+                    # Validar según el tipo
+                    if field_type == 'number':
+                        if not isinstance(field_value, (int, float)):
+                            try:
+                                float(field_value)
+                            except (ValueError, TypeError):
+                                raise serializers.ValidationError(
+                                    f"El campo '{field_name}' debe ser un número"
+                                )
+
+                    elif field_type == 'checkbox':
+                        if not isinstance(field_value, bool):
+                            raise serializers.ValidationError(
+                                f"El campo '{field_name}' debe ser true o false"
+                            )
+
+                    elif field_type == 'select':
+                        # Validar que el valor esté en las opciones
+                        options = field_def.get('options', [])
+                        if field_value not in options:
+                            raise serializers.ValidationError(
+                                f"El campo '{field_name}' debe ser uno de: {', '.join(options)}"
+                            )
+
+        return value
+
+    def validate(self, data):
+        """
+        Validación a nivel de objeto completo.
+        Verifica que el inventario pertenezca al usuario (si no es admin).
+        """
+        inventory = data.get('inventory')
+        request = self.context.get('request')
+
+        if request and inventory:
+            # Verificar que el inventario pertenece al usuario
+            if not request.user.is_staff and inventory.owner != request.user:
+                raise serializers.ValidationError(
+                    "No puedes crear productos en un inventario que no te pertenece"
+                )
+
+        return data
 
     def validate_quantity(self, value):
         """
