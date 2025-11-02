@@ -5,7 +5,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import RegisterSerializer, UserProfileSerializer
+from .serializers import RegisterSerializer, UserProfileSerializer, AuthTokenSerializer
 from .models import User
 from inventory.utils import get_user_usage
 
@@ -50,10 +50,22 @@ class LoginView(ObtainAuthToken):
     También devuelve token simple para compatibilidad
     """
     permission_classes = [AllowAny]
+    serializer_class = AuthTokenSerializer
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
+
+        # Validar y manejar errores de autenticación con 401
+        if not serializer.is_valid():
+            # Si el error es de autorización, devolver 401
+            if 'authorization' in str(serializer.errors):
+                return Response(
+                    serializer.errors,
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            # Otros errores devuelven 400
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         user = serializer.validated_data['user']
 
         # Generar token simple (compatibilidad)

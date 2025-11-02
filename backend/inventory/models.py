@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from decimal import Decimal
+from cloudinary.models import CloudinaryField
 
 
 class BusinessTemplate(models.Model):
@@ -136,6 +137,14 @@ class Product(models.Model):
         max_length=100,
         blank=True,
         help_text="Categoría del producto (ej: Herramientas, Pinturas)"
+    )
+
+    # Imagen del producto
+    image = CloudinaryField(
+        'image',
+        blank=True,
+        null=True,
+        help_text="Imagen del producto almacenada en Cloudinary"
     )
 
     # Relación con inventario

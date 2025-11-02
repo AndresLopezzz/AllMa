@@ -132,6 +132,8 @@ class ProductSerializer(serializers.ModelSerializer):
     is_out_of_stock = serializers.BooleanField(read_only=True)
     inventory_name = serializers.CharField(source='inventory.name', read_only=True)
     template_info = serializers.SerializerMethodField(read_only=True)
+    image_url = serializers.SerializerMethodField(read_only=True)
+    image_versions = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Product
@@ -143,6 +145,9 @@ class ProductSerializer(serializers.ModelSerializer):
             'quantity',
             'price',
             'category',
+            'image',
+            'image_url',
+            'image_versions',
             'inventory',
             'inventory_name',
             'custom_data',
@@ -163,6 +168,54 @@ class ProductSerializer(serializers.ModelSerializer):
         Usa get_effective_template para priorizar custom_template_fields.
         """
         return get_effective_template(obj.inventory)
+
+    def get_image_url(self, obj):
+        """
+        Devuelve la URL optimizada de la imagen de Cloudinary.
+        Aplica transformaciones automáticas:
+        - f_auto: Formato automático (WebP, AVIF según soporte del navegador)
+        - q_auto: Calidad automática optimizada
+        - w_800: Ancho máximo de 800px (puedes ajustarlo)
+        Si no hay imagen, devuelve None.
+        """
+        if obj.image:
+            # Cloudinary permite transformaciones en la URL
+            # Formato: .../upload/transformaciones/nombre.jpg
+            url = obj.image.url
+
+            # Insertar transformaciones después de /upload/
+            if '/upload/' in url:
+                # Transformaciones: formato auto, calidad auto, ancho máximo 800px
+                transformations = 'f_auto,q_auto,w_800/'
+                url = url.replace('/upload/', f'/upload/{transformations}')
+
+            return url
+        return None
+
+    def get_image_versions(self, obj):
+        """
+        Devuelve múltiples versiones optimizadas de la imagen:
+        - thumbnail: 200x200px (para listas/cards)
+        - medium: 800px ancho (para vistas detalle)
+        - full: original optimizado (para zoom/lightbox)
+
+        Todas usan f_auto (WebP/AVIF) y q_auto para máxima optimización.
+        """
+        if not obj.image:
+            return None
+
+        base_url = obj.image.url
+
+        if '/upload/' not in base_url:
+            return None
+
+        versions = {
+            'thumbnail': base_url.replace('/upload/', '/upload/f_auto,q_auto,w_200,h_200,c_fill/'),
+            'medium': base_url.replace('/upload/', '/upload/f_auto,q_auto,w_800,c_limit/'),
+            'full': base_url.replace('/upload/', '/upload/f_auto,q_auto:best/')
+        }
+
+        return versions
 
     def validate_sku(self, value):
         """

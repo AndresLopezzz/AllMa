@@ -1,345 +1,156 @@
-# 🏢 Sistema de Gestión de Inventarios - SaaS
+# Allma Inventory
 
-Sistema completo de inventarios con backend Django y frontend React, diseñado para pequeñas y medianas empresas.
+Sistema modular de inventarios diseñado para adaptarse a diferentes tipos de negocios mediante plantillas personalizables. Permite a pequeñas y medianas empresas gestionar sus productos con campos dinámicos según sus necesidades específicas.
 
----
+## Descripción del Proyecto
 
-## 📋 Tabla de Contenidos
+Este sistema ofrece una solución flexible para la gestión de inventarios que se adapta a distintos rubros comerciales. A diferencia de sistemas rígidos, utiliza un sistema de plantillas que permite definir campos personalizados según el tipo de negocio (ferretería, ropa, restaurante, etc.).
 
-- [Stack Tecnológico](#-stack-tecnológico)
-- [Características](#-características)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [Instalación](#-instalación)
-- [Configuración](#-configuración)
-- [API Endpoints](#-api-endpoints)
-- [Desarrollo](#-desarrollo)
-- [Deploy](#-deploy)
+### Características Principales
 
----
+**Sistema de plantillas dinámicas**
+- Cada tipo de negocio puede definir sus propios campos personalizados
+- Validaciones automáticas según la estructura definida
+- Soporte para diferentes tipos de datos (texto, número, selección múltiple)
 
-## 🚀 Stack Tecnológico
+**Gestión de inventarios**
+- Control de stock con alertas de bajo inventario
+- Soporte para múltiples inventarios por usuario
+- SKU único por inventario para evitar duplicados
+- Soft delete para mantener historial
 
-### **Backend:**
-- **Django 5.2+** - Framework web
-- **Django REST Framework** - API REST
-- **PostgreSQL** - Base de datos
-- **JWT (Simple JWT)** - Autenticación
-- **Cloudinary** - Almacenamiento de imágenes
-- **psycopg3** - Adaptador PostgreSQL
+**Autenticación y permisos**
+- Sistema de roles (administrador/empleado)
+- Planes de suscripción con límites configurables
+- Autenticación mediante JWT con tokens de corta y larga duración
 
-### **Frontend:**
-- **React 18+** - Librería UI
-- **TypeScript** - Tipado estático
-- **Vite** - Build tool
-- **Bun** - Runtime y package manager
-- **TanStack Router** - Enrutamiento (file-based)
-- **TanStack Query** - Manejo de estado del servidor
-- **TanStack Form** - Formularios con validación
-- **shadcn/ui** - Componentes UI
-- **Tailwind CSS** - Estilos
+**Almacenamiento de imágenes**
+- Integración con Cloudinary para almacenamiento externo
+- Optimización automática de imágenes (WebP/AVIF)
+- Múltiples versiones (thumbnail, medium, full)
 
-### **Deploy:**
-- **Railway** - Backend
-- **Vercel** - Frontend
+## Stack Tecnológico
 
----
+**Backend:** Django 5.2 + Django REST Framework + PostgreSQL
+**Autenticación:** JWT (djangorestframework-simplejwt)
+**Almacenamiento:** Cloudinary
+**Testing:** Django TestCase (78% coverage)
 
-## ✨ Características
+**Frontend:** React + TypeScript + TanStack Router/Query (en desarrollo)
 
-### **Autenticación:**
-- ✅ Registro de usuarios con email
-- ✅ Login con JWT (Access + Refresh tokens)
-- ✅ Renovación automática de tokens
-- ✅ Roles: Admin y Empleado
-- ✅ Planes: Free y Pro
-
-### **Inventario (En desarrollo):**
-- [ ] CRUD de productos
-- [ ] Categorías
-- [ ] Proveedores
-- [ ] Control de stock
-- [ ] Historial de movimientos
-- [ ] Alertas de stock bajo
-
----
-
-## 📁 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 inventory/
-├── backend/                 # Backend Django
-│   ├── accounts/           # App de usuarios
-│   │   ├── models.py       # Modelo User personalizado
-│   │   ├── serializers.py  # Serializers DRF
-│   │   ├── views.py        # Vistas API
-│   │   └── urls.py         # Rutas
-│   ├── inventory/          # App de inventario
-│   ├── backend/            # Configuración Django
-│   │   └── settings.py
-│   ├── manage.py
-│   ├── requirements.txt    # Dependencias Python
-│   ├── .env               # Variables de entorno (no versionado)
-│   └── API_DOCS.md        # Documentación API
-│
-├── frontend/              # Frontend React (próximamente)
-│
+├── backend/
+│   ├── accounts/          # Gestión de usuarios y autenticación
+│   ├── inventory/         # Lógica de inventarios y productos
+│   ├── backend/           # Configuración del proyecto
+│   └── manage.py
+├── frontend/              # Aplicación React (próximamente)
 └── README.md
 ```
 
----
+## Instalación y Configuración
 
-## 🛠️ Instalación
+### Prerrequisitos
 
-### **Prerrequisitos:**
-- Python 3.11+ (⚠️ Si usas 3.14, algunas librerías pueden tener problemas)
+- Python 3.11+
 - PostgreSQL 14+
-- Node.js 18+ / Bun
-- Git
+- Cuenta en Cloudinary (para imágenes)
 
-### **Backend:**
+### Configuración Inicial
+
+1. Clonar el repositorio y crear entorno virtual
+2. Instalar dependencias: `pip install -r requirements.txt`
+3. Configurar variables de entorno en archivo `.env`
+4. Ejecutar migraciones: `python manage.py migrate`
+5. Crear superusuario: `python manage.py createsuperuser`
+6. Iniciar servidor: `python manage.py runserver`
+
+### Variables de Entorno Requeridas
+
+```
+SECRET_KEY=
+DEBUG=
+ALLOWED_HOSTS=
+
+DB_NAME=
+DB_USER=
+DB_PASSWORD=
+DB_HOST=
+DB_PORT=
+
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+```
+
+## API
+
+La API REST está documentada en `/backend/API_DOCS.md` con ejemplos de uso para cada endpoint.
+
+**Endpoints principales:**
+- `/api/register/` - Registro de usuarios
+- `/api/login/` - Autenticación
+- `/api/templates/` - Plantillas de negocio
+- `/api/inventories/` - Gestión de inventarios
+- `/api/products/` - CRUD de productos
+
+## Testing
 
 ```bash
-# 1. Clonar el repositorio
-git clone <tu-repo>
-cd inventory/backend
-
-# 2. Crear entorno virtual
-python -m venv venv
-
-# 3. Activar entorno virtual
-# Windows:
-venv\Scripts\activate
-# Linux/Mac:
-source venv/bin/activate
-
-# 4. Instalar dependencias
-pip install -r requirements.txt
-
-# 5. Configurar variables de entorno
-# Copia .env.example a .env y edita los valores
-cp .env.example .env
-
-# 6. Ejecutar migraciones
-python manage.py migrate
-
-# 7. Crear superusuario
-python manage.py createsuperuser
-
-# 8. Iniciar servidor
-python manage.py runserver
-```
-
-El servidor estará disponible en: `http://localhost:8000`
-
----
-
-## ⚙️ Configuración
-
-### **Variables de Entorno (`.env`):**
-
-```env
-# Django
-SECRET_KEY=tu-secret-key-aqui
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-
-# Base de datos
-DB_NAME=inventario_db
-DB_USER=postgres
-DB_PASSWORD=tu-password
-DB_HOST=localhost
-DB_PORT=5432
-
-# Cloudinary (opcional por ahora)
-# CLOUDINARY_CLOUD_NAME=
-# CLOUDINARY_API_KEY=
-# CLOUDINARY_API_SECRET=
-```
-
-### **Crear base de datos PostgreSQL:**
-
-```sql
-CREATE DATABASE inventario_db;
-CREATE USER postgres WITH PASSWORD 'tu-password';
-GRANT ALL PRIVILEGES ON DATABASE inventario_db TO postgres;
-```
-
----
-
-## 📡 API Endpoints
-
-### **Autenticación:**
-
-| Método | Endpoint              | Descripción                    | Auth |
-|--------|-----------------------|--------------------------------|------|
-| POST   | `/api/register/`      | Registro de usuario            | No   |
-| POST   | `/api/login/`         | Login (devuelve JWT)           | No   |
-| POST   | `/api/token/`         | Obtener tokens JWT             | No   |
-| POST   | `/api/token/refresh/` | Renovar access token           | No   |
-| GET    | `/api/profile/`       | Obtener perfil de usuario      | Sí   |
-| PUT    | `/api/profile/`       | Actualizar perfil              | Sí   |
-
-### **Ejemplos de uso:**
-
-#### **Registro:**
-```bash
-POST /api/register/
-Content-Type: application/json
-
-{
-  "email": "usuario@ejemplo.com",
-  "name": "Juan Pérez",
-  "password": "password123",
-  "password2": "password123",
-  "role": "empleado",
-  "plan": "free"
-}
-```
-
-#### **Login:**
-```bash
-POST /api/login/
-Content-Type: application/json
-
-{
-  "username": "usuario@ejemplo.com",
-  "password": "password123"
-}
-```
-
-Respuesta:
-```json
-{
-  "token": "...",
-  "access": "eyJhbGci...",
-  "refresh": "eyJhbGci...",
-  "user": { ... }
-}
-```
-
-#### **Perfil (con autenticación):**
-```bash
-GET /api/profile/
-Authorization: Bearer <access_token>
-```
-
-📖 **Documentación completa:** Ver `backend/API_DOCS.md`
-
----
-
-## 💻 Desarrollo
-
-### **Backend:**
-
-```bash
-# Activar entorno virtual
-venv\Scripts\activate  # Windows
-source venv/bin/activate  # Linux/Mac
-
-# Crear nueva app
-python manage.py startapp nombre_app
-
-# Crear migraciones
-python manage.py makemigrations
-
-# Aplicar migraciones
-python manage.py migrate
-
-# Crear superusuario
-python manage.py createsuperuser
-
-# Ejecutar tests
+# Ejecutar todos los tests
 python manage.py test
 
-# Acceder al admin
-http://localhost:8000/admin/
+# Ejecutar tests con cobertura
+coverage run --source='.' manage.py test
+coverage report
 ```
 
-### **Frontend (Próximamente):**
+**Cobertura actual:** 78% (31 tests implementados)
 
-```bash
-cd frontend
+Los tests cubren funcionalidades críticas: autenticación, permisos, validaciones de negocio y operaciones CRUD.
 
-# Instalar dependencias con Bun
-bun install
+## Modelo de Negocio
 
-# Modo desarrollo
-bun run dev
+El sistema está diseñado para ofrecer diferentes planes de suscripción:
 
-# Build para producción
-bun run build
-```
+**Plan Free:** Límites básicos para prueba del servicio
+**Plan Pro:** Límites extendidos para pequeñas empresas
+**Plan Premium:** Sin límites para empresas establecidas
 
----
+Los límites se configuran en `inventory/constants.py` y se validan automáticamente en cada operación.
 
-## 🚢 Deploy
+## Próximos Pasos
 
-### **Backend (Railway):**
+- Completar frontend con React y TanStack
+- Implementar dashboard con estadísticas
+- Sistema de reportes y exportación
+- Historial de movimientos de inventario
+- Notificaciones por email
+- API pública con rate limiting
 
-1. Crear cuenta en [Railway](https://railway.app/)
-2. Conectar repositorio de GitHub
-3. Agregar PostgreSQL plugin
-4. Configurar variables de entorno
-5. Deploy automático
+## Deploy
 
-### **Frontend (Vercel):**
+**Backend:** Railway o similar (PostgreSQL incluido)
+**Frontend:** Vercel
+**Imágenes:** Cloudinary
 
-1. Crear cuenta en [Vercel](https://vercel.com/)
-2. Importar repositorio
-3. Configurar variables de entorno
-4. Deploy automático
+## Desarrollo
 
----
+El proyecto sigue las convenciones estándar de Django. Para contribuir:
 
-## 📝 Notas Importantes
+1. Crear rama desde `main`
+2. Implementar cambios con tests
+3. Verificar que todos los tests pasen
+4. Crear pull request con descripción clara
 
-### **Seguridad:**
-- ✅ `.env` está en `.gitignore` - NUNCA subir credenciales
-- ✅ JWT tokens expiran (Access: 1h, Refresh: 7d)
-- ✅ Contraseñas hasheadas con PBKDF2
-- ✅ CORS configurado para dominios específicos
+## Licencia
 
-### **Base de datos:**
-- SQLite disponible para desarrollo rápido
-- PostgreSQL recomendado para producción
-
-### **Compatibilidad Python:**
-- ⚠️ Python 3.14 puede tener problemas con Pillow
-- ✅ Python 3.11-3.12 totalmente compatible
+MIT License
 
 ---
 
-## 🤝 Contribuir
-
-1. Fork el proyecto
-2. Crea una rama: `git checkout -b feature/nueva-funcionalidad`
-3. Commit: `git commit -m 'Agregar nueva funcionalidad'`
-4. Push: `git push origin feature/nueva-funcionalidad`
-5. Abre un Pull Request
-
----
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT.
-
----
-
-## 👥 Autores
-
-- **Tu Nombre** - Desarrollo inicial
-
----
-
-## 🙏 Agradecimientos
-
-- Django Team
-- React Team
-- TanStack Team
-- shadcn/ui
-
----
-
-**Estado del Proyecto:** 🟡 En Desarrollo Activo
-
-**Última actualización:** Enero 2025
+**Estado:** En desarrollo activo
+**Versión:** 0.1.0 (MVP)
