@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import BusinessTemplate, Inventory, Product
+from .models import BusinessTemplate, Inventory, Product, Movement
 
 
 class BusinessTemplateAdmin(admin.ModelAdmin):
@@ -95,8 +95,52 @@ class ProductAdmin(admin.ModelAdmin):
 
     get_stock_status.short_description = 'Estado Stock'
 
+    def save_model(self, request, obj, form, change):
+        """
+        Sobrescribe save_model para capturar el usuario que hace cambios.
+        Esto permite que los signals sepan quién realizó el movimiento.
+        """
+        # Asignar el usuario actual al objeto para que el signal lo capture
+        obj._performed_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+class MovementAdmin(admin.ModelAdmin):
+    """
+    Configuración del admin para Movement
+    """
+    list_display = ('product', 'movement_type', 'quantity', 'quantity_before', 'quantity_after', 'performed_by', 'timestamp')
+    list_filter = ('movement_type', 'timestamp', 'product__inventory')
+    search_fields = ('product__name', 'product__sku', 'reason', 'performed_by__email')
+    readonly_fields = ('product', 'movement_type', 'quantity', 'quantity_before', 'quantity_after', 'reason', 'performed_by', 'timestamp')
+
+    fieldsets = (
+        ('Información del Movimiento', {
+            'fields': ('product', 'movement_type', 'quantity')
+        }),
+        ('Detalles del Cambio', {
+            'fields': ('quantity_before', 'quantity_after', 'reason')
+        }),
+        ('Auditoría', {
+            'fields': ('performed_by', 'timestamp')
+        }),
+    )
+
+    def has_add_permission(self, request):
+        """No permitir agregar movimientos manualmente"""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """No permitir eliminar movimientos (auditoría)"""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """No permitir editar movimientos (auditoría)"""
+        return False
+
 
 # Registro tradicional (más compatible)
 admin.site.register(BusinessTemplate, BusinessTemplateAdmin)
 admin.site.register(Inventory, InventoryAdmin)
 admin.site.register(Product, ProductAdmin)
+admin.site.register(Movement, MovementAdmin)

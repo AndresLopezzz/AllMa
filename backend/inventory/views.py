@@ -3,13 +3,20 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import BusinessTemplate, Inventory, Product
+from django.db.models import Sum, Count, Q, F, DecimalField
+from django.db.models.functions import Coalesce
+from django.http import HttpResponse
+from decimal import Decimal
+from .models import BusinessTemplate, Inventory, Product, Movement
+import csv
 from .serializers import (
     BusinessTemplateSerializer,
     InventoryListSerializer,
     InventoryDetailSerializer,
-    ProductSerializer
+    ProductSerializer,
+    AlertSerializer
 )
 from .filters import ProductFilter
 from .utils import validate_custom_fields_structure, check_plan_limits
@@ -202,6 +209,238 @@ class InventoryViewSet(viewsets.ModelViewSet):
             'effective_template': custom_fields
         }, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['get'], url_path='export')
+    def export(self, request, pk=None):
+        """
+        Exporta todos los productos de un inventario a CSV.
+
+        GET /api/inventories/{id}/export/
+
+        Genera un archivo CSV con:
+        - Columnas estándar: SKU, Nombre, Descripción, Cantidad, Precio, Categoría, Stock Status
+        - Columnas de custom_data aplanadas dinámicamente
+
+        Returns:
+            CSV file con content-type: text/csv
+        """
+        inventory = self.get_object()
+
+        # Verificar permisos: solo el dueño puede exportar
+        if not request.user.is_staff and inventory.owner != request.user:
+            return Response(
+                {'error': 'No tienes permiso para exportar este inventario'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Obtener todos los productos activos del inventario
+        products = Product.objects.filter(
+            inventory=inventory,
+            is_active=True
+        ).order_by('sku')
+
+        # Crear respuesta HTTP con tipo CSV
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="inventario_{inventory.id}_{inventory.name}.csv"'
+
+        # Agregar BOM para que Excel reconozca UTF-8
+        response.write('\ufeff')
+
+        writer = csv.writer(response)
+
+        # Determinar todas las columnas de custom_data
+        custom_keys = set()
+        for product in products:
+            if product.custom_data:
+                custom_keys.update(product.custom_data.keys())
+        custom_keys = sorted(custom_keys)
+
+        # Escribir encabezados
+        headers = [
+            'SKU',
+            'Nombre',
+            'Descripción',
+            'Cantidad',
+            'Precio',
+            'Umbral Stock Bajo',
+            'Categoría',
+            'Estado Stock',
+            'Fecha Creación',
+            'Última Actualización'
+        ]
+
+        # Agregar columnas personalizadas
+        for key in custom_keys:
+            headers.append(f'Custom: {key}')
+
+        writer.writerow(headers)
+
+        # Escribir datos de productos
+        for product in products:
+            row = [
+                product.sku,
+                product.name,
+                product.description or '',
+                product.quantity,
+                float(product.price),
+                product.low_stock_threshold,
+                product.category or '',
+                product.stock_status,
+                product.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                product.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+            ]
+
+            # Agregar valores de custom_data
+            for key in custom_keys:
+                value = product.custom_data.get(key, '') if product.custom_data else ''
+                row.append(value)
+
+            writer.writerow(row)
+
+        return response
+
+    @action(detail=True, methods=['get'], url_path='stats')
+    def stats(self, request, pk=None):
+        """
+        Retorna estadísticas detalladas de un inventario específico.
+
+        GET /api/inventories/{id}/stats/
+
+        Response:
+        {
+            "inventory_id": 1,
+            "inventory_name": "Bodega Principal",
+            "total_products": 150,
+            "total_value": 45000.00,
+            "low_stock_products": 5,
+            "out_of_stock_products": 2,
+            "categories": [
+                {"name": "Electrónica", "count": 30, "total_value": 15000.00},
+                ...
+            ],
+            "top_products_by_value": [
+                {"id": 1, "name": "...", "sku": "...", "value": 1000.00},
+                ...
+            ],
+            "recent_movements": [
+                {"id": 1, "type": "entrada", "quantity": 10, ...},
+                ...
+            ],
+            "stock_distribution": {
+                "in_stock": 100,
+                "low_stock": 40,
+                "out_of_stock": 10
+            }
+        }
+        """
+        inventory = self.get_object()
+
+        # Verificar permisos
+        if not request.user.is_staff and inventory.owner != request.user:
+            return Response(
+                {'error': 'No tienes permiso para ver estadísticas de este inventario'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Obtener productos activos del inventario
+        products = Product.objects.filter(
+            inventory=inventory,
+            is_active=True
+        )
+
+        # Métricas básicas
+        total_products = products.count()
+
+        # Valor total del inventario (cantidad * precio)
+        total_value = products.annotate(
+            product_value=F('quantity') * F('price')
+        ).aggregate(
+            total=Coalesce(Sum('product_value'), Decimal('0.00'))
+        )['total']
+
+        # Productos con stock bajo y sin stock
+        low_stock_count = products.filter(
+            quantity__lte=F('low_stock_threshold'),
+            quantity__gt=0
+        ).count()
+
+        out_of_stock_count = products.filter(quantity=0).count()
+
+        # Distribución de stock
+        in_stock_count = products.filter(
+            quantity__gt=F('low_stock_threshold')
+        ).count()
+
+        # Estadísticas por categoría
+        categories_stats = products.values('category').annotate(
+            count=Count('id'),
+            total_value=Sum(F('quantity') * F('price'), output_field=DecimalField())
+        ).order_by('-total_value')
+
+        categories_list = []
+        for cat in categories_stats:
+            categories_list.append({
+                'name': cat['category'] if cat['category'] else 'Sin categoría',
+                'count': cat['count'],
+                'total_value': float(cat['total_value'] or 0)
+            })
+
+        # Top 10 productos por valor (cantidad * precio)
+        top_products = products.annotate(
+            product_value=F('quantity') * F('price')
+        ).order_by('-product_value')[:10]
+
+        top_products_list = []
+        for product in top_products:
+            top_products_list.append({
+                'id': product.id,
+                'name': product.name,
+                'sku': product.sku,
+                'quantity': product.quantity,
+                'price': float(product.price),
+                'total_value': float(product.quantity * product.price),
+                'category': product.category or 'Sin categoría'
+            })
+
+        # Movimientos recientes (últimos 10)
+        recent_movements = Movement.objects.filter(
+            product__inventory=inventory
+        ).select_related('product', 'performed_by').order_by('-timestamp')[:10]
+
+        recent_movements_list = []
+        for movement in recent_movements:
+            recent_movements_list.append({
+                'id': movement.id,
+                'product_name': movement.product.name,
+                'product_sku': movement.product.sku,
+                'movement_type': movement.movement_type,
+                'quantity': movement.quantity,
+                'quantity_before': movement.quantity_before,
+                'quantity_after': movement.quantity_after,
+                'reason': movement.reason,
+                'performed_by': movement.performed_by.email if movement.performed_by else None,
+                'timestamp': movement.timestamp.isoformat()
+            })
+
+        # Construir respuesta
+        data = {
+            'inventory_id': inventory.id,
+            'inventory_name': inventory.name,
+            'total_products': total_products,
+            'total_value': float(total_value),
+            'low_stock_products': low_stock_count,
+            'out_of_stock_products': out_of_stock_count,
+            'stock_distribution': {
+                'in_stock': in_stock_count,
+                'low_stock': low_stock_count,
+                'out_of_stock': out_of_stock_count
+            },
+            'categories': categories_list,
+            'top_products_by_value': top_products_list,
+            'recent_movements': recent_movements_list
+        }
+
+        return Response(data, status=status.HTTP_200_OK)
+
 
 class ProductPagination(PageNumberPagination):
     """
@@ -388,7 +627,9 @@ class ProductViewSet(viewsets.ModelViewSet):
                 status=400
             )
 
+        # Actualizar cantidad y registrar quién hizo el ajuste
         product.quantity = new_quantity
+        product._performed_by = request.user
         product.save()
 
         serializer = self.get_serializer(product)
@@ -398,3 +639,240 @@ class ProductViewSet(viewsets.ModelViewSet):
             'current_quantity': product.quantity,
             'data': serializer.data
         })
+
+
+class DashboardView(APIView):
+    """
+    Vista para obtener métricas del dashboard.
+
+    GET /api/dashboard/
+
+    Query params opcionales:
+    - inventory: ID del inventario para filtrar métricas
+
+    Retorna:
+    - total_products: Cantidad de productos activos
+    - total_inventory_value: Valor total del inventario (precio * cantidad)
+    - low_stock_count: Cantidad de productos con stock bajo
+    - total_inventories: Cantidad de inventarios del usuario
+    - recent_movements: Últimos 10 movimientos (opcional)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        inventory_id = request.query_params.get('inventory')
+
+        # Base queryset: solo productos del usuario
+        if user.is_staff:
+            products_queryset = Product.objects.select_related('inventory')
+        else:
+            products_queryset = Product.objects.filter(
+                inventory__owner=user
+            ).select_related('inventory')
+
+        # Filtrar por inventario específico si se proporciona
+        if inventory_id:
+            products_queryset = products_queryset.filter(inventory_id=inventory_id)
+
+        # Solo productos activos
+        products_queryset = products_queryset.filter(is_active=True)
+
+        # Métricas básicas
+        total_products = products_queryset.count()
+
+        # Valor total del inventario (precio * cantidad)
+        inventory_value_data = products_queryset.aggregate(
+            total_value=Sum(F('price') * F('quantity'))
+        )
+        total_inventory_value = inventory_value_data['total_value'] or 0
+
+        # Productos con stock bajo (quantity <= low_stock_threshold)
+        low_stock_count = products_queryset.filter(
+            quantity__lte=F('low_stock_threshold')
+        ).count()
+
+        # Productos sin stock
+        out_of_stock_count = products_queryset.filter(quantity=0).count()
+
+        # Total de inventarios del usuario
+        if user.is_staff:
+            total_inventories = Inventory.objects.count()
+        else:
+            inventories_queryset = Inventory.objects.filter(owner=user)
+            if inventory_id:
+                inventories_queryset = inventories_queryset.filter(id=inventory_id)
+            total_inventories = inventories_queryset.count()
+
+        # Construir respuesta
+        data = {
+            'total_products': total_products,
+            'total_inventory_value': float(total_inventory_value),
+            'low_stock_count': low_stock_count,
+            'out_of_stock_count': out_of_stock_count,
+            'total_inventories': total_inventories,
+        }
+
+        # Si se filtró por inventario, agregar info del inventario
+        if inventory_id:
+            try:
+                if user.is_staff:
+                    inventory = Inventory.objects.get(id=inventory_id)
+                else:
+                    inventory = Inventory.objects.get(id=inventory_id, owner=user)
+
+                data['inventory'] = {
+                    'id': inventory.id,
+                    'name': inventory.name,
+                    'template_name': inventory.template.name
+                }
+            except Inventory.DoesNotExist:
+                pass
+
+        # Datos para gráficas
+
+        # 1. Productos por categoría
+        products_by_category = products_queryset.values('category').annotate(
+            count=Count('id')
+        ).order_by('-count')
+
+        # Convertir a lista y manejar categorías vacías
+        products_by_category_list = []
+        for item in products_by_category:
+            category_name = item['category'] if item['category'] else 'Sin categoría'
+            products_by_category_list.append({
+                'category': category_name,
+                'count': item['count']
+            })
+
+        data['products_by_category'] = products_by_category_list
+
+        # 2. Valor por inventario
+        if user.is_staff:
+            inventories_queryset = Inventory.objects.all()
+        else:
+            inventories_queryset = Inventory.objects.filter(owner=user)
+
+        # Si se filtró por inventario, solo mostrar ese
+        if inventory_id:
+            inventories_queryset = inventories_queryset.filter(id=inventory_id)
+
+        value_by_inventory_list = []
+        for inv in inventories_queryset:
+            inv_products = products_queryset.filter(inventory=inv)
+            inv_value = inv_products.aggregate(
+                total=Coalesce(Sum(F('price') * F('quantity')), 0, output_field=DecimalField())
+            )['total']
+
+            value_by_inventory_list.append({
+                'inventory_id': inv.id,
+                'inventory_name': inv.name,
+                'value': float(inv_value)
+            })
+
+        # Ordenar por valor descendente
+        value_by_inventory_list.sort(key=lambda x: x['value'], reverse=True)
+        data['value_by_inventory'] = value_by_inventory_list
+
+        # 3. Movimientos recientes (últimos 10)
+        movements_queryset = Movement.objects.select_related(
+            'product', 'product__inventory', 'performed_by'
+        ).filter(
+            product__inventory__in=inventories_queryset
+        ).order_by('-timestamp')[:10]
+
+        recent_movements_list = []
+        for movement in movements_queryset:
+            recent_movements_list.append({
+                'id': movement.id,
+                'product_id': movement.product.id,
+                'product_name': movement.product.name,
+                'product_sku': movement.product.sku,
+                'inventory_name': movement.product.inventory.name,
+                'movement_type': movement.movement_type,
+                'movement_type_display': movement.get_movement_type_display(),
+                'quantity': movement.quantity,
+                'quantity_before': movement.quantity_before,
+                'quantity_after': movement.quantity_after,
+                'reason': movement.reason,
+                'performed_by': movement.performed_by.email if movement.performed_by else None,
+                'timestamp': movement.timestamp.isoformat()
+            })
+
+        data['recent_movements'] = recent_movements_list
+
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class AlertPagination(PageNumberPagination):
+    """
+    Paginación específica para alertas.
+    10 alertas por página.
+    """
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
+class AlertView(APIView):
+    """
+    Vista para listar productos con stock bajo (alertas).
+
+    GET /api/alerts/
+        Lista productos con quantity < low_stock_threshold
+        Ordenados por criticidad (ratio más bajo = más crítico)
+
+    Query parameters:
+        - page: número de página (default: 1)
+        - page_size: tamaño de página (default: 10, max: 50)
+        - inventory: filtrar por ID de inventario
+        - new_only: si es 'true', solo muestra alertas no enviadas (alert_sent=False)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = AlertPagination
+
+    def get(self, request):
+        """
+        Lista productos con stock bajo ordenados por criticidad.
+        """
+        # Base queryset: productos con stock bajo
+        queryset = Product.objects.filter(
+            is_active=True,
+            quantity__lt=F('low_stock_threshold')
+        ).select_related(
+            'inventory',
+            'inventory__owner'
+        )
+
+        # Filtrar por inventarios del usuario (no admin ve solo sus inventarios)
+        if not request.user.is_staff:
+            queryset = queryset.filter(inventory__owner=request.user)
+
+        # Filtro opcional: por inventario específico
+        inventory_id = request.query_params.get('inventory')
+        if inventory_id:
+            queryset = queryset.filter(inventory_id=inventory_id)
+
+        # Filtro opcional: solo alertas nuevas (no enviadas)
+        new_only = request.query_params.get('new_only', '').lower() == 'true'
+        if new_only:
+            queryset = queryset.filter(alert_sent=False)
+
+        # Anotar el ratio de criticidad para ordenar
+        # Usamos F() para calcular en la base de datos
+        # Agregamos un pequeño valor para evitar división por cero
+        queryset = queryset.annotate(
+            criticality=F('quantity') * 1.0 / (F('low_stock_threshold') + 0.0001)
+        ).order_by('criticality', 'quantity')
+
+        # Paginar
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
+        if page is not None:
+            serializer = AlertSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        # Si no hay paginación (no debería pasar)
+        serializer = AlertSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

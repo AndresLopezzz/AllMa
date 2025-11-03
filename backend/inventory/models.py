@@ -168,6 +168,12 @@ class Product(models.Model):
         help_text="Si es False, el producto está eliminado (soft delete)"
     )
 
+    # Alertas
+    alert_sent = models.BooleanField(
+        default=False,
+        help_text="Indica si ya se envió una alerta de stock bajo para este producto"
+    )
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -201,3 +207,72 @@ class Product(models.Model):
             return "Stock bajo"
         else:
             return "En stock"
+
+
+class Movement(models.Model):
+    """
+    Movimiento de inventario - Registra cada cambio en el stock de un producto.
+
+    Permite mantener un historial completo de entradas, salidas y ajustes
+    de inventario, incluyendo quién realizó cada movimiento y por qué.
+    """
+    MOVEMENT_TYPES = [
+        ('entrada', 'Entrada'),
+        ('salida', 'Salida'),
+        ('ajuste', 'Ajuste'),
+    ]
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='movements',
+        help_text="Producto al que pertenece este movimiento"
+    )
+
+    movement_type = models.CharField(
+        max_length=10,
+        choices=MOVEMENT_TYPES,
+        help_text="Tipo de movimiento realizado"
+    )
+
+    quantity = models.IntegerField(
+        help_text="Cantidad del movimiento (positivo para entradas, negativo para salidas)"
+    )
+
+    quantity_before = models.IntegerField(
+        help_text="Cantidad antes del movimiento"
+    )
+
+    quantity_after = models.IntegerField(
+        help_text="Cantidad después del movimiento"
+    )
+
+    reason = models.TextField(
+        blank=True,
+        help_text="Motivo o descripción del movimiento"
+    )
+
+    performed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='inventory_movements',
+        help_text="Usuario que realizó el movimiento"
+    )
+
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Fecha y hora del movimiento"
+    )
+
+    class Meta:
+        verbose_name = "Movimiento de Inventario"
+        verbose_name_plural = "Movimientos de Inventario"
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['-timestamp']),
+            models.Index(fields=['product', '-timestamp']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_movement_type_display()}: {self.product.name} ({self.quantity:+d}) - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"

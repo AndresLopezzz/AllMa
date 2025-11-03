@@ -7,3 +7,4 @@ class InventoryConfig(AppConfig):
 
     def ready(self):
         import inventory.admin  # Forzar la carga del admin
+        import inventory.signals  # Registrar signals para movimientos

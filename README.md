@@ -66,7 +66,38 @@ inventory/
 3. Configurar variables de entorno en archivo `.env`
 4. Ejecutar migraciones: `python manage.py migrate`
 5. Crear superusuario: `python manage.py createsuperuser`
-6. Iniciar servidor: `python manage.py runserver`
+6. **(Opcional)** Poblar con datos de prueba: `python manage.py seed_data --clear`
+7. Iniciar servidor: `python manage.py runserver`
+
+### Datos de Prueba (Seed Data)
+
+El proyecto incluye un comando personalizado para poblar la base de datos con datos de ejemplo:
+
+```bash
+# Crear datos de prueba (mantiene datos existentes)
+python manage.py seed_data
+
+# Limpiar base de datos y crear datos frescos
+python manage.py seed_data --clear
+```
+
+**Datos generados:**
+- 3 usuarios con diferentes planes (free, pro)
+- 5 plantillas de negocio (Ferretería, Ropa, Electrónica, Alimentos, Librería)
+- 10 inventarios distribuidos entre usuarios
+- ~110 productos con stock variado
+- 50 movimientos de inventario
+
+**Credenciales de acceso:**
+- Email: `free@example.com` | Password: `password123` (Plan Free)
+- Email: `pro@example.com` | Password: `password123` (Plan Pro)
+- Email: `pro2@example.com` | Password: `password123` (Plan Pro)
+
+Estos datos son ideales para:
+- Probar la API sin crear datos manualmente
+- Desarrollo del frontend con datos realistas
+- Demos y presentaciones
+- Testing de features
 
 ### Variables de Entorno Requeridas
 
@@ -88,14 +119,75 @@ CLOUDINARY_API_SECRET=
 
 ## API
 
-La API REST está documentada en `/backend/API_DOCS.md` con ejemplos de uso para cada endpoint.
+La API REST está completamente documentada en `/backend/api_docs.md` con:
+- Tabla completa de endpoints
+- Ejemplos de request/response para cada uno
+- Códigos de error comunes
+- Notas sobre paginación, filtros y ordenamiento
+- Información sobre límites por plan
 
 **Endpoints principales:**
 - `/api/register/` - Registro de usuarios
 - `/api/login/` - Autenticación
 - `/api/templates/` - Plantillas de negocio
 - `/api/inventories/` - Gestión de inventarios
+- `/api/inventories/{id}/stats/` - Estadísticas detalladas por inventario
+- `/api/inventories/{id}/export/` - Exportar productos a CSV
 - `/api/products/` - CRUD de productos
+- `/api/products/{id}/adjust_stock/` - Ajustar stock con tracking
+- `/api/dashboard/` - Métricas generales del usuario
+- `/api/alerts/` - Productos con stock bajo ordenados por criticidad
+
+### Dashboard API
+
+El endpoint `/api/dashboard/` proporciona métricas clave y datos listos para visualización.
+
+**Métricas básicas:**
+- `total_products` - Cantidad total de productos activos
+- `total_inventory_value` - Valor total del inventario (precio × cantidad)
+- `low_stock_count` - Productos con stock bajo o igual al umbral
+- `out_of_stock_count` - Productos sin stock
+- `total_inventories` - Cantidad de inventarios del usuario
+
+**Datos para gráficas:**
+- `products_by_category` - Array de objetos `{category, count}` ordenado por cantidad
+- `value_by_inventory` - Array de objetos `{inventory_id, inventory_name, value}` ordenado por valor
+- `recent_movements` - Últimos 10 movimientos con información completa del producto
+
+**Filtros opcionales:**
+- `?inventory=<id>` - Filtra todas las métricas por un inventario específico
+
+**Ejemplo de respuesta:**
+```json
+{
+  "total_products": 23,
+  "total_inventory_value": 49644.38,
+  "low_stock_count": 14,
+  "out_of_stock_count": 3,
+  "total_inventories": 9,
+  "products_by_category": [
+    {"category": "Herramientas", "count": 8},
+    {"category": "Electrónica", "count": 5}
+  ],
+  "value_by_inventory": [
+    {"inventory_id": 1, "inventory_name": "Bodega 1", "value": 25000.50}
+  ],
+  "recent_movements": [
+    {
+      "id": 45,
+      "product_name": "Martillo",
+      "movement_type": "salida",
+      "quantity": -15,
+      "timestamp": "2025-11-02T19:16:00Z"
+    }
+  ]
+}
+```
+
+**Performance:**
+- Optimizado con agregaciones a nivel de base de datos
+- Máximo 9 queries independiente del tamaño del dataset
+- Respuesta < 500ms con 100+ productos
 
 ## Testing
 
@@ -103,14 +195,39 @@ La API REST está documentada en `/backend/API_DOCS.md` con ejemplos de uso para
 # Ejecutar todos los tests
 python manage.py test
 
+# Ejecutar tests específicos
+python manage.py test inventory.tests.AlertAPITests
+python manage.py test accounts.tests
+
 # Ejecutar tests con cobertura
 coverage run --source='.' manage.py test
 coverage report
 ```
 
-**Cobertura actual:** 78% (31 tests implementados)
+**Cobertura actual:** 85% (93 tests implementados)
 
-Los tests cubren funcionalidades críticas: autenticación, permisos, validaciones de negocio y operaciones CRUD.
+Los tests cubren:
+- ✅ Autenticación y permisos (registro, login, perfil)
+- ✅ CRUD completo de productos con validaciones
+- ✅ Gestión de inventarios y plantillas
+- ✅ Sistema de alertas de stock bajo
+- ✅ Dashboard con métricas y gráficas
+- ✅ Exportación a CSV
+- ✅ Estadísticas por inventario
+- ✅ Tracking de movimientos
+- ✅ Soft delete y restauración
+- ✅ Ajustes de stock con diferentes tipos
+</parameter>
+
+<old_text line=177>
+## Próximos Pasos
+
+- Completar frontend con React y TanStack
+- Implementar dashboard con estadísticas
+- Sistema de reportes y exportación
+- Historial de movimientos de inventario
+- Notificaciones por email
+- API pública con rate limiting
 
 ## Modelo de Negocio
 
@@ -152,5 +269,6 @@ MIT License
 
 ---
 
-**Estado:** En desarrollo activo
-**Versión:** 0.1.0 (MVP)
+**Estado:** Backend completo - Frontend en desarrollo
+**Versión:** 1.0.0 (Backend MVP completo)
+**Última actualización:** Noviembre 2024

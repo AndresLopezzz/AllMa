@@ -217,6 +217,34 @@ class ProductSerializer(serializers.ModelSerializer):
 
         return versions
 
+    def create(self, validated_data):
+        """
+        Override create to attach user from request context for movement tracking.
+        """
+        product = Product(**validated_data)
+        # Get user from context if available
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            product._performed_by = request.user
+        product.save()
+        return product
+
+    def update(self, instance, validated_data):
+        """
+        Override update to attach user from request context for movement tracking.
+        """
+        # Get user from context if available
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            instance._performed_by = request.user
+
+        # Update fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
+
     def validate_sku(self, value):
         """
         Valida que el SKU sea único dentro del inventario.
@@ -403,3 +431,69 @@ class ProductSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("El precio no puede ser negativo")
         return value
+
+
+class AlertSerializer(serializers.ModelSerializer):
+    """
+    Serializer para alertas de stock bajo.
+
+    Incluye información crítica del producto, inventario y categoría.
+    Calcula el ratio de criticidad: quantity / low_stock_threshold
+    """
+    inventory_name = serializers.CharField(source='inventory.name', read_only=True)
+    inventory_id = serializers.IntegerField(source='inventory.id', read_only=True)
+    owner_email = serializers.EmailField(source='inventory.owner.email', read_only=True)
+    owner_name = serializers.CharField(source='inventory.owner.name', read_only=True)
+
+    # Campo calculado: ratio de criticidad (más bajo = más crítico)
+    criticality_ratio = serializers.SerializerMethodField(read_only=True)
+
+    # URL de imagen optimizada
+    image_url = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            'id',
+            'name',
+            'sku',
+            'quantity',
+            'low_stock_threshold',
+            'price',
+            'category',
+            'image_url',
+            'inventory_id',
+            'inventory_name',
+            'owner_email',
+            'owner_name',
+            'criticality_ratio',
+            'alert_sent',
+            'stock_status',
+            'is_out_of_stock',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_criticality_ratio(self, obj):
+        """
+        Calcula el ratio de criticidad: quantity / low_stock_threshold
+
+        Valores más bajos = más críticos
+        - 0.0 = sin stock (crítico)
+        - 0.5 = al 50% del umbral (medio)
+        - 1.0 = justo en el umbral (bajo)
+        """
+        if obj.low_stock_threshold == 0:
+            return 0.0
+        return round(obj.quantity / obj.low_stock_threshold, 2)
+
+    def get_image_url(self, obj):
+        """
+        Devuelve la URL de la imagen optimizada (thumbnail 200x200).
+        """
+        if obj.image:
+            url = obj.image.url
+            if '/upload/' in url:
+                return url.replace('/upload/', '/upload/f_auto,q_auto,w_200,h_200,c_fill/')
+        return None
