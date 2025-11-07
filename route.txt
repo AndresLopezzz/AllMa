@@ -687,15 +687,11 @@ Tareas:
   - Limpia localStorage
   - Invalida queries de TanStack Query
   - Redirige a login
-□ Hacer responsive:
-  - Menú hamburguesa en móvil
-  - Colapsar sidebar en tablets
 □ Añadir theme toggle (light/dark) con shadcn
 
 Criterio de aceptación:
 ✓ Navegación funcional entre páginas
 ✓ Logout funciona correctamente
-✓ Layout responsive
 ✓ UI profesional y consistente
 
 

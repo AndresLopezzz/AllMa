@@ -1,19 +1,27 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { login } from "@/lib/api/services/auth";
-import { useAuthStore } from "@/lib/store/authStore";
-import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/lib/store/AuthStore";
 import {
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+  Input,
+  Label,
+} from "@/components/ui";
 
 export const Route = createFileRoute("/login")({
+  beforeLoad: () => {
+    const authStore = useAuthStore.getState();
+    authStore.initializeAuth();
+
+    if (authStore.isAuthenticated()) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   component: Login,
 });
 
@@ -44,7 +52,7 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-background text-foreground p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Login</CardTitle>

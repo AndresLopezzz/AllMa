@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -43,6 +44,7 @@
 
 :root {
   --radius: 0.625rem;
+  --font-base: "IBM Plex Mono", monospace;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -116,5 +118,6 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-base);
   }
 }

@@ -1,31 +1,41 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { register } from "@/lib/api/services/auth";
-import { useAuthStore } from "@/lib/store/authStore";
-import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/lib/store/AuthStore";
 import {
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+  Input,
+  Label,
+} from "@/components/ui";
 
 const PLAN_OPTIONS = [
   { label: "Plan gratuito (Free)", value: "free" },
   { label: "Plan profesional (Pro)", value: "pro" },
-];
+] as const;
+
+type PlanValue = (typeof PLAN_OPTIONS)[number]["value"];
 
 export const Route = createFileRoute("/register")({
+  beforeLoad: () => {
+    const authStore = useAuthStore.getState();
+    authStore.initializeAuth();
+
+    if (authStore.isAuthenticated()) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   component: Register,
 });
 
 function Register() {
   const [name, setName] = useState("");
-  const [plan, setPlan] = useState("free");
+  const [plan, setPlan] = useState<PlanValue>("free");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
@@ -47,9 +57,15 @@ function Register() {
     try {
       setLoading(true);
 
-      const data = await register(email, password, name, plan);
+      const data = await register({
+        email,
+        password,
+        password2,
+        name,
+        plan,
+      });
 
-      setUser(data.user, data.tokens);
+      setUser(data.user, { access: data.access, refresh: data.refresh });
       navigate({ to: "/dashboard" });
     } catch (err) {
       setError(
@@ -62,7 +78,7 @@ function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-background text-foreground p-6">
       <Card className="w-full max-w-lg">
         <CardHeader>
           <CardTitle>Crear una cuenta</CardTitle>
@@ -102,7 +118,10 @@ function Register() {
                 id="plan"
                 className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none focus:border-ring focus-visible:ring-ring/50"
                 value={plan}
-                onChange={(event) => setPlan(event.target.value)}
+                onChange={(event) => {
+                  const value = event.target.value as PlanValue;
+                  setPlan(value);
+                }}
               >
                 {PLAN_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -142,7 +161,7 @@ function Register() {
               {loading ? "Creando cuenta..." : "Registrarme"}
             </Button>
 
-            <p className="text-sm text-muted-foreground text-center">
+            <p className="text-center text-sm text-muted-foreground">
               ¿Ya tienes cuenta?{" "}
               <a
                 href="/login"

@@ -1,36 +1,16 @@
-import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
+import AppLayout from "@/components/layout/AppLayout";
 
 export const Route = createRootRoute({
-  component: () => (
+  component: RootComponent,
+});
+
+function RootComponent() {
+  return (
     <>
-      <div className="p-2 flex gap-2">
-        <Link
-          to="/"
-          activeProps={{
-            className: "bg-blue-500 text-white px-3 py-1 rounded",
-          }}
-          inactiveProps={{
-            className: "text-gray-600 hover:text-blue-500 px-3 py-1",
-          }}
-        >
-          Home
-        </Link>
-        <Link
-          to="/about"
-          activeProps={{
-            className: "bg-blue-500 text-white px-3 py-1 rounded",
-          }}
-          inactiveProps={{
-            className: "text-gray-600 hover:text-blue-500 px-3 py-1",
-          }}
-        >
-          About
-        </Link>
-      </div>
-      <hr />
-      <Outlet />
+      <AppLayout />
       <TanStackRouterDevtools />
     </>
-  ),
-});
+  );
+}
