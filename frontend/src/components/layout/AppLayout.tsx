@@ -85,7 +85,7 @@ export function AppLayout() {
               to="/dashboard"
               className="text-lg font-semibold text-primary transition-colors hover:text-primary/80"
             >
-              InventarioPro
+              AllMa
             </Link>
             <nav className="flex items-center gap-4">
               {navItems.map((item) => (

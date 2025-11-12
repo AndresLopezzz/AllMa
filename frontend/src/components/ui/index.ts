@@ -29,3 +29,12 @@ export {
   SheetTrigger,
 } from "./sheet";
 export { Toaster } from "./sonner";
+export {
+  Pagination,
+  PaginationContent,
+  PaginationLink,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from "./pagination";

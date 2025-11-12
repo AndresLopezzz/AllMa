@@ -56,3 +56,19 @@ export function useCreateInventoryMutation() {
     },
   });
 }
+
+/**
+ * useInventoryQuery
+ * - GET /api/inventories/{id}/ — detalle del inventario
+ */
+export function useInventoryQuery(id?: string | number) {
+  return useQuery({
+    queryKey: ["inventory", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data } = await apiClient.get(`/api/inventories/${id}/`);
+      return data;
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+}
