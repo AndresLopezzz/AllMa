@@ -17,6 +17,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Toaster,
 } from "@/components/ui";
 import { ModeToggle } from "@/components/theme";
 
@@ -154,6 +155,7 @@ export function AppLayout() {
       <main className="mx-auto w-full flex-1 max-w-6xl px-6 py-8">
         <Outlet />
       </main>
+      <Toaster />
     </div>
   );
 }

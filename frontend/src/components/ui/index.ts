@@ -28,3 +28,4 @@ export {
   SheetTitle,
   SheetTrigger,
 } from "./sheet";
+export { Toaster } from "./sonner";
