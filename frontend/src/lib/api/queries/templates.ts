@@ -32,3 +32,27 @@ export function useTemplatesQuery() {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+/**
+ * useTemplateQuery
+ * - GET /api/templates/{id}/
+ */
+export function useTemplateQuery(
+  templateId: string | number,
+  options?: { enabled?: boolean },
+) {
+  const queryKey = ["template", templateId];
+
+  return useQuery<TemplateItem>({
+    queryKey,
+    enabled: !!templateId && (options?.enabled ?? true),
+    queryFn: async (): Promise<TemplateItem> => {
+      const { data } = await apiClient.get<TemplateItem>(
+        `/api/templates/${templateId}/`,
+      );
+
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}

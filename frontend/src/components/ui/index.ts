@@ -38,3 +38,14 @@ export {
   PaginationNext,
   PaginationEllipsis,
 } from "./pagination";
+export { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog";
+export {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "./alert-dialog";

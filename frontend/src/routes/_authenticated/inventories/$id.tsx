@@ -4,6 +4,7 @@ import {
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
+import { toast } from "sonner";
 import {
   Input,
   Button,
@@ -14,12 +15,34 @@ import {
   PaginationLink,
   PaginationPrevious,
   PaginationNext,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
 } from "@/components/ui";
 
 import { useInventoryQuery } from "@/lib/api/queries/inventories";
-import { useProductsQuery } from "@/lib/api/queries/products";
-import type { ProductItem } from "@/lib/api/queries/products";
+import { useProductsQuery, useProductQuery } from "@/lib/api/queries/products";
+import { useTemplateQuery } from "@/lib/api/queries/templates";
+import type {
+  ProductItem,
+  CreateProductData,
+} from "@/lib/api/queries/products";
+import {
+  useCreateProductMutation,
+  useUpdateProductMutation,
+  useDeleteProductMutation,
+} from "@/lib/api/queries/products";
 import ProductTable from "@/components/inventories/ProductTable";
+import ProductForm from "@/components/inventories/ProductForm";
 
 export const Route = createFileRoute("/_authenticated/inventories/$id")({
   component: RouteComponent,
@@ -43,6 +66,19 @@ function RouteComponent() {
   const [page, setPage] = useState(1);
   //para cambiar cuantos elementos por pag
   const pageSize = 5;
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(
+    null,
+  );
+
+  // AlertDialog state
+  const [alertDialogOpen, setAlertDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<ProductItem | null>(
+    null,
+  );
 
   // Debounce effect (300ms)
   useEffect(() => {
@@ -70,6 +106,22 @@ function RouteComponent() {
   // Read inventory details
   const { data: inventory, isLoading: loadingInventory } =
     useInventoryQuery(inventoryId);
+
+  // Read template details for custom fields
+  const { data: template } = useTemplateQuery(inventory?.template || "", {
+    enabled: !!inventory?.template,
+  });
+
+  // Fetch product for edit
+  const { data: productData } = useProductQuery(
+    selectedProductId?.toString() || "",
+    { enabled: !!selectedProductId },
+  );
+
+  // Mutations
+  const createMutation = useCreateProductMutation();
+  const updateMutation = useUpdateProductMutation();
+  const deleteMutation = useDeleteProductMutation();
 
   // Build filters for query, derived from debounced state
   const filters = useMemo(
@@ -113,14 +165,66 @@ function RouteComponent() {
   );
 
   // Handlers for actions
+  const handleAddProduct = () => {
+    setDialogMode("create");
+    setSelectedProductId(null);
+    setDialogOpen(true);
+  };
+
   const handleEdit = (p: ProductForTable) => {
-    // abrir modal o navegar al edit
-    console.log("edit", p);
+    setDialogMode("edit");
+    setSelectedProductId(p.id);
+    setDialogOpen(true);
   };
 
   const handleDelete = (p: ProductForTable) => {
-    // mostrar confirm y llamar mutation
-    console.log("delete", p);
+    setProductToDelete(
+      productsData?.results.find((prod) => prod.id === p.id) || null,
+    );
+    setAlertDialogOpen(true);
+  };
+
+  const handleFormSubmit = async (data: CreateProductData) => {
+    try {
+      console.log("Enviando data:", data);
+      console.log("Dialog mode:", dialogMode);
+      console.log("Selected product ID:", selectedProductId);
+      console.log("Product data:", productData);
+      if (dialogMode === "create") {
+        await createMutation.mutateAsync(data);
+        toast.success("Producto creado exitosamente");
+      } else {
+        // Para update, enviar el inventory actual (del form, que es el mismo inventario)
+        const updateData = {
+          ...data,
+          id: selectedProductId!,
+          inventory: Number(inventoryId), // Siempre el mismo inventario
+        };
+        console.log("Update data final:", updateData);
+        const result = await updateMutation.mutateAsync(updateData);
+        console.log("Update result:", result);
+        toast.success("Producto actualizado exitosamente");
+      }
+      setDialogOpen(false);
+    } catch (error: any) {
+      toast.error("Error al guardar el producto");
+      console.error("Error details:", error);
+      console.error("Error response:", error?.response?.data);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (productToDelete) {
+      try {
+        await deleteMutation.mutateAsync(productToDelete.id);
+        toast.success("Producto eliminado exitosamente");
+        setAlertDialogOpen(false);
+        setProductToDelete(null);
+      } catch (error) {
+        toast.error("Error al eliminar el producto");
+        console.error(error);
+      }
+    }
   };
 
   // Pagination controls
@@ -150,9 +254,7 @@ function RouteComponent() {
           >
             Configurar Plantilla
           </Button>
-          <Button onClick={() => console.log("Agregar Producto")}>
-            Agregar Producto
-          </Button>
+          <Button onClick={handleAddProduct}>Agregar Producto</Button>
         </div>
       </div>
 
@@ -377,6 +479,66 @@ function RouteComponent() {
           </Pagination>
         </div>
       )}
+
+      {/* Product Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {dialogMode === "create" ? "Crear Producto" : "Editar Producto"}
+            </DialogTitle>
+          </DialogHeader>
+          <ProductForm
+            mode={dialogMode}
+            template={
+              template
+                ? {
+                    id: template.id,
+                    name: template.name,
+                    custom_fields: template.custom_fields,
+                  }
+                : undefined
+            }
+            initialData={
+              dialogMode === "edit" && productData
+                ? {
+                    ...productData,
+                    inventory: Number(inventoryId),
+                    image_url: productData.image_url,
+                    price: productData.price ?? undefined,
+                    category: productData.category ?? undefined,
+                  }
+                : { inventory: Number(inventoryId) }
+            }
+            onSubmit={handleFormSubmit}
+            isSubmitting={createMutation.isPending || updateMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Alert Dialog */}
+      <AlertDialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. El producto será marcado como
+              eliminado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProductToDelete(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
