@@ -1,20 +1,11 @@
 import { Edit, Trash } from "lucide-react";
 import { Button } from "@/components/ui";
-
-interface Product {
-  id: number;
-  name: string;
-  sku?: string;
-  quantity: number;
-  price?: number | null;
-  category?: string | null;
-  image_url?: string | null;
-}
+import type { ProductItem } from "@/lib/api/queries/products";
 
 interface Props {
-  products: Product[];
-  onEdit: (p: Product) => void;
-  onDelete: (p: Product) => void;
+  products: ProductItem[];
+  onEdit: (p: ProductItem) => void;
+  onDelete: (p: ProductItem) => void;
 }
 
 export default function ProductTable({ products, onEdit, onDelete }: Props) {
@@ -51,14 +42,13 @@ export default function ProductTable({ products, onEdit, onDelete }: Props) {
               </td>
               <td className="p-2">{p.name}</td>
               <td className="p-2">{p.sku ?? "-"}</td>
-              <td className="p-2">{p.quantity}</td>
+              <td
+                className={`p-2 ${p.is_low_stock ? "text-red-600 font-semibold" : ""}`}
+              >
+                {p.quantity}
+              </td>
               <td className="p-2">
-                {typeof p.price === "number" && isFinite(p.price)
-                  ? `$${p.price.toFixed(2)}`
-                  : typeof p.price === "string" &&
-                      !Number.isNaN(Number(p.price))
-                    ? `$${Number(p.price).toFixed(2)}`
-                    : "-"}
+                {p.price ? `$${p.price.toFixed(2)}` : "-"}
               </td>
               <td className="p-2">{p.category ?? "-"}</td>
               <td className="p-2">

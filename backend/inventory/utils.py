@@ -4,39 +4,39 @@ Utilidades para el módulo de inventario
 from typing import Dict, Any, Union, List
 
 
-def get_effective_template(inventory) -> Dict[str, Any]:
+def get_effective_template(inventory) -> list:
     """
     Retorna los custom_fields efectivos para un inventario.
 
-    Prioridad:
-    1. Si el inventario tiene custom_template_fields personalizado → usar ese
-    2. Sino → usar template.custom_fields de la plantilla base
+    Combina los campos base de la plantilla con los campos personalizados del inventario.
+    Los campos personalizados tienen prioridad sobre los base.
 
     Args:
         inventory: Instancia del modelo Inventory
 
     Returns:
-        dict: Estructura de custom_fields a usar para validar productos
+        list: Lista de custom_fields efectivos
 
     Examples:
         >>> inventory = Inventory.objects.get(id=1)
         >>> fields = get_effective_template(inventory)
         >>> print(fields)
-        {
-            "marca": {"type": "text", "required": true},
-            "color": {"type": "select", "required": false, "options": ["rojo", "azul"]}
-        }
+        [
+            {"name": "marca", "type": "text", "required": true},
+            {"name": "color", "type": "select", "required": false, "options": ["rojo", "azul"]}
+        ]
     """
-    # Si el inventario tiene una plantilla personalizada, usarla
-    if inventory.custom_template_fields:
-        return inventory.custom_template_fields
+    base_fields = inventory.template.custom_fields if inventory.template else []
+    custom_fields = inventory.custom_template_fields or []
 
-    # Sino, usar la plantilla base del template
-    if inventory.template and inventory.template.custom_fields:
-        return inventory.template.custom_fields
+    # Merge, custom overrides base
+    merged_dict = {}
+    for field in base_fields:
+        merged_dict[field['name']] = field
+    for field in custom_fields:
+        merged_dict[field['name']] = field
 
-    # Si no hay ninguna, retornar diccionario vacío
-    return {}
+    return list(merged_dict.values())
 
 
 def validate_custom_fields_structure(custom_fields: Union[Dict, List]) -> tuple[bool, str]:

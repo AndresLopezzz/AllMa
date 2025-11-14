@@ -11,6 +11,15 @@ export interface ProductItem {
   image_url?: string | null;
   inventory: number;
   custom_data?: Record<string, unknown>; // campos dinámicos
+  description?: string;
+  low_stock_threshold?: number;
+  stock_status?: string;
+  is_low_stock?: boolean;
+  is_out_of_stock?: boolean;
+  inventory_name?: string;
+  template_info?: Array<{ name: string; type: string; required: boolean }>;
+  created_at?: string;
+  updated_at?: string;
   // otros campos opcionales que la API pudiera devolver
 }
 
@@ -128,8 +137,7 @@ export function useCreateProductMutation() {
       if (data.sku) formData.append("sku", data.sku);
       if (data.description) formData.append("description", data.description);
       formData.append("quantity", data.quantity.toString());
-      if (data.price !== undefined)
-        formData.append("price", data.price.toString());
+      if (data.price != null) formData.append("price", data.price.toString());
       if (data.low_stock_threshold)
         formData.append(
           "low_stock_threshold",
@@ -187,14 +195,14 @@ export function useUpdateProductMutation() {
         formData.append("description", updateData.description);
       if (updateData.quantity !== undefined)
         formData.append("quantity", updateData.quantity.toString());
-      if (updateData.price !== undefined)
+      if (updateData.price != null)
         formData.append("price", updateData.price.toString());
       if (updateData.low_stock_threshold !== undefined)
         formData.append(
           "low_stock_threshold",
           updateData.low_stock_threshold.toString(),
         );
-      if (updateData.category !== undefined)
+      if (updateData.category != null)
         formData.append("category", updateData.category);
       if (updateData.inventory !== undefined)
         formData.append("inventory", updateData.inventory.toString());
@@ -242,5 +250,33 @@ export function useDeleteProductMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
     },
+  });
+}
+
+/**
+ * useCategoriesQuery
+ * - Obtiene categorías únicas de productos en un inventario
+ * - Pagina a través de todas las páginas para asegurar obtener todas las categorías
+ */
+export function useCategoriesQuery(inventoryId: string | number) {
+  return useQuery<string[]>({
+    queryKey: ["categories", inventoryId],
+    enabled: !!inventoryId,
+    queryFn: async (): Promise<string[]> => {
+      const categories = new Set<string>();
+      let nextUrl: string | null =
+        `/api/products/?inventory=${inventoryId}&page_size=100`;
+
+      while (nextUrl) {
+        const { data } = await apiClient.get<ProductsResponse>(nextUrl);
+        data.results.forEach((product) => {
+          if (product.category) categories.add(product.category);
+        });
+        nextUrl = data.next;
+      }
+
+      return Array.from(categories).sort();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutos
   });
 }

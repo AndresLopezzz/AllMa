@@ -104,6 +104,14 @@ class InventoryDetailSerializer(serializers.ModelSerializer):
     """
     owner_name = serializers.CharField(source='owner.name', read_only=True)
     template_data = BusinessTemplateSerializer(source='template', read_only=True)
+    custom_fields = serializers.SerializerMethodField(read_only=True)
+
+    def get_custom_fields(self, obj):
+        """
+        Devuelve los custom_fields efectivos del inventario.
+        Usa get_effective_template para priorizar custom_template_fields.
+        """
+        return get_effective_template(obj)
 
     class Meta:
         model = Inventory
@@ -114,6 +122,7 @@ class InventoryDetailSerializer(serializers.ModelSerializer):
             'owner_name',
             'template',
             'template_data',
+            'custom_fields',
             'custom_template_fields',
             'created_at',
             'updated_at'

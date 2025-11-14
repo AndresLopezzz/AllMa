@@ -28,10 +28,20 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
   AlertDialogCancel,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Checkbox,
 } from "@/components/ui";
 
 import { useInventoryQuery } from "@/lib/api/queries/inventories";
-import { useProductsQuery, useProductQuery } from "@/lib/api/queries/products";
+import {
+  useProductsQuery,
+  useProductQuery,
+  useCategoriesQuery,
+} from "@/lib/api/queries/products";
 import { useTemplateQuery } from "@/lib/api/queries/templates";
 import type {
   ProductItem,
@@ -44,6 +54,9 @@ import {
 } from "@/lib/api/queries/products";
 import ProductTable from "@/components/inventories/ProductTable";
 import ProductForm from "@/components/inventories/ProductForm";
+import ProductGrid from "@/components/inventories/ProductGrid";
+import ProductCards from "@/components/inventories/ProductCards";
+import TemplateEditor from "@/components/inventories/TemplateEditor";
 
 export const Route = createFileRoute("/_authenticated/inventories/$id")({
   component: RouteComponent,
@@ -63,10 +76,19 @@ function RouteComponent() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState<string | "">("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
-  const [view, setView] = useState<"table" | "grid" | "cards">("table");
+  // Inicializar vista desde localStorage
+  const [view, setView] = useState<"table" | "grid" | "cards">(() => {
+    const saved = localStorage.getItem("inventory-view");
+    return (saved as "table" | "grid" | "cards") || "table";
+  });
   const [page, setPage] = useState(1);
   //para cambiar cuantos elementos por pag
-  const pageSize = 5;
+  const pageSize = 15;
+
+  // Persistir vista en localStorage
+  useEffect(() => {
+    localStorage.setItem("inventory-view", view);
+  }, [view]);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -80,6 +102,9 @@ function RouteComponent() {
   const [productToDelete, setProductToDelete] = useState<ProductItem | null>(
     null,
   );
+
+  // Template editor dialog state
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
 
   // Debounce effect (300ms)
   useEffect(() => {
@@ -113,6 +138,9 @@ function RouteComponent() {
     enabled: !!inventory?.template,
   });
 
+  // Read categories for filter
+  const { data: categories } = useCategoriesQuery(inventoryId);
+
   // Fetch product for edit
   const { data: productData } = useProductQuery(
     selectedProductId?.toString() || "",
@@ -142,28 +170,18 @@ function RouteComponent() {
     filters,
   );
 
-  // Map ProductItem -> shape expected by ProductTable (omit inventory)
-  type ProductForTable = {
-    id: number;
-    name: string;
-    sku?: string;
-    quantity: number;
-    price?: number | null;
-    category?: string | null;
-    image_url?: string | null;
-  };
-
-  const productsForTable: ProductForTable[] = (productsData?.results ?? []).map(
-    (p: ProductItem) => ({
-      id: p.id,
-      name: p.name,
-      sku: p.sku,
-      quantity: p.quantity,
-      price: p.price,
-      category: p.category,
-      image_url: p.image_url,
-    }),
-  );
+  // Map ProductItem -> shape expected by components (include all fields)
+  const productsForComponents: ProductItem[] = (
+    productsData?.results ?? []
+  ).map((p: ProductItem) => ({
+    ...p,
+    price: p.price ? Number(p.price) : undefined,
+    stock_status: p.is_low_stock
+      ? "Stock bajo"
+      : p.is_out_of_stock
+        ? "Sin stock"
+        : "En stock",
+  }));
 
   // Handlers for actions
   const handleAddProduct = () => {
@@ -172,13 +190,13 @@ function RouteComponent() {
     setDialogOpen(true);
   };
 
-  const handleEdit = (p: ProductForTable) => {
+  const handleEdit = (p: ProductItem) => {
     setDialogMode("edit");
     setSelectedProductId(p.id);
     setDialogOpen(true);
   };
 
-  const handleDelete = (p: ProductForTable) => {
+  const handleDelete = (p: ProductItem) => {
     setProductToDelete(
       productsData?.results.find((prod) => prod.id === p.id) || null,
     );
@@ -207,10 +225,11 @@ function RouteComponent() {
         toast.success("Producto actualizado exitosamente");
       }
       setDialogOpen(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error("Error al guardar el producto");
       console.error("Error details:", error);
-      console.error("Error response:", error?.response?.data);
+      const err = error as { response?: { data?: unknown } };
+      console.error("Error response:", err?.response?.data);
     }
   };
 
@@ -259,10 +278,7 @@ function RouteComponent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => console.log("Configurar plantilla")}
-          >
+          <Button variant="outline" onClick={() => setTemplateDialogOpen(true)}>
             Configurar Plantilla
           </Button>
           <Button onClick={handleAddProduct}>Agregar Producto</Button>
@@ -270,72 +286,67 @@ function RouteComponent() {
       </div>
 
       {/* Filters + View selector */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex gap-2 flex-1">
-          <div className="w-full max-w-md">
-            <Label htmlFor="search">Buscar</Label>
-            <Input
-              id="search"
-              placeholder="Nombre o SKU..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-
-          <div className="w-48">
-            <Label htmlFor="category">Categoría</Label>
-            <div className="relative">
-              <select
-                id="category"
-                value={category}
-                onChange={(e) => {
-                  setCategory(e.target.value as string);
-                  setPage(1);
-                }}
-                className="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] dark:bg-input/30"
-              >
-                <option
-                  value=""
-                  style={{ background: "#ffffff", color: "#0f172a" }}
-                >
-                  Todas
-                </option>
-                {/* TODO: mapear categorías reales desde API */}
-                <option
-                  value="Herramientas"
-                  style={{ background: "#ffffff", color: "#0f172a" }}
-                >
-                  Herramientas
-                </option>
-                <option
-                  value="Electrónica"
-                  style={{ background: "#ffffff", color: "#0f172a" }}
-                >
-                  Electrónica
-                </option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex intems-center items-end">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={lowStockOnly}
-                onChange={(e) => {
-                  setLowStockOnly(e.target.checked);
-                  setPage(1);
-                }}
-              />
-              <span className="text-sm">Solo stock bajo</span>
-            </label>
-          </div>
+      {/* Filters */}
+      <div className="flex gap-4">
+        <div className="w-full max-w-md">
+          <Label htmlFor="search" className="mb-2">
+            Buscar
+          </Label>
+          <Input
+            id="search"
+            placeholder="Nombre o SKU..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="w-48">
+          <Label htmlFor="category" className="mb-2">
+            Categoría
+          </Label>
+          <Select
+            value={category || "all"}
+            onValueChange={(value: string) => {
+              setCategory(value === "all" ? "" : value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              {categories?.map((cat) => (
+                <SelectItem key={cat} value={cat}>
+                  {cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center h-9 gap-2 mt-5.5">
+          <Checkbox
+            id="low-stock"
+            checked={lowStockOnly}
+            onCheckedChange={(checked) => {
+              setLowStockOnly(checked === true);
+              setPage(1);
+            }}
+            className="bg-background"
+          />
+          <Label htmlFor="low-stock" className="text-sm">
+            Solo stock bajo
+          </Label>
+        </div>
+      </div>
+
+      {/* View selector */}
+      <div className="flex justify-end">
+        <div className="flex items-center gap-2 h-9">
           <div className="text-sm text-muted-foreground mr-2">Vista:</div>
           <div className="flex gap-1">
             <Button
@@ -382,66 +393,22 @@ function RouteComponent() {
           <>
             {view === "table" && (
               <ProductTable
-                products={productsForTable}
+                products={productsForComponents}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
               />
             )}
 
             {view === "grid" && (
-              // Grid básico
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {productsForTable.map((p) => (
-                  <div key={p.id} className="p-4 border rounded">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 bg-muted/30 rounded" />
-                      <div>
-                        <div className="font-medium">{p.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {p.sku}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {typeof p.price === "number" && isFinite(p.price)
-                            ? `$${p.price.toFixed(2)}`
-                            : typeof p.price === "string" &&
-                                !Number.isNaN(Number(p.price))
-                              ? `$${Number(p.price).toFixed(2)}`
-                              : "-"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ProductGrid
+                products={productsForComponents}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
             )}
 
             {view === "cards" && (
-              <div className="space-y-3">
-                {productsForTable.map((p) => (
-                  <div
-                    key={p.id}
-                    className="p-4 border rounded flex items-center justify-between"
-                  >
-                    <div>
-                      <div className="font-medium">{p.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {p.sku} • {p.category}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold">{p.quantity}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {typeof p.price === "number" && isFinite(p.price)
-                          ? `$${p.price.toFixed(2)}`
-                          : typeof p.price === "string" &&
-                              !Number.isNaN(Number(p.price))
-                            ? `$${Number(p.price).toFixed(2)}`
-                            : "-"}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ProductCards products={productsForComponents} />
             )}
           </>
         )}
@@ -506,7 +473,8 @@ function RouteComponent() {
                 ? {
                     id: template.id,
                     name: template.name,
-                    custom_fields: template.custom_fields,
+                    custom_fields:
+                      inventory?.custom_fields || template.custom_fields,
                   }
                 : undefined
             }
@@ -550,6 +518,14 @@ function RouteComponent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Template Editor Dialog */}
+      <TemplateEditor
+        inventoryId={inventoryId}
+        initialFields={inventory?.custom_fields || []}
+        open={templateDialogOpen}
+        onOpenChange={(open) => setTemplateDialogOpen(open)}
+      />
     </div>
   );
 }

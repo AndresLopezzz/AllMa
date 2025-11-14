@@ -35,7 +35,7 @@ export default function CreateInventoryDialog() {
       {
         onSuccess: () => {
           setOpen(false);
-          setName("");  
+          setName("");
           setTemplateId("");
           toast.success("Inventario creado exitosamente");
         },

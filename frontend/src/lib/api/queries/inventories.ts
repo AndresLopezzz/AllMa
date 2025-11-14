@@ -7,6 +7,7 @@ export interface InventoryItem {
   owner: number;
   template: number | null;
   template_name: string | null;
+  custom_fields?: any[];
   created_at: string;
   updated_at: string;
 }
@@ -70,5 +71,40 @@ export function useInventoryQuery(id?: string | number) {
       return data;
     },
     staleTime: 2 * 60 * 1000,
+  });
+}
+
+/**
+ * useUpdateTemplateFieldsMutation
+ * - PUT /api/inventories/{id}/custom-fields/
+ * - Body: { custom_fields: [...] }
+ * - Invalida queries de inventory y template
+ */
+export function useUpdateTemplateFieldsMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      inventoryId,
+      customFields,
+    }: {
+      inventoryId: string | number;
+      customFields: Array<{
+        name: string;
+        type: string;
+        required: boolean;
+        options?: string[];
+      }>;
+    }) => {
+      const { data } = await apiClient.put(
+        `/api/inventories/${inventoryId}/custom-fields/`,
+        { custom_fields: customFields },
+      );
+      return data;
+    },
+    onSuccess: (_, { inventoryId }) => {
+      queryClient.invalidateQueries({ queryKey: ["inventory", inventoryId] });
+      queryClient.invalidateQueries({ queryKey: ["template"] });
+    },
   });
 }
