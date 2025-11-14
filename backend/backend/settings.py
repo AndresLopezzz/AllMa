@@ -209,12 +209,12 @@ REST_FRAMEWORK = {
 # Simple JWT Configuration
 SIMPLE_JWT = {
     # Access Token: Token de corta duración para hacer peticiones
-    # Expira en 1 hora - Si alguien lo roba, solo funciona 1 hora
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    # En desarrollo: 24 horas, en producción: 1 hora
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=24) if DEBUG else timedelta(hours=1),
 
     # Refresh Token: Token de larga duración para renovar el Access Token
-    # Expira en 7 días - Permite obtener nuevos Access Tokens sin hacer login
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # En desarrollo: 10 años (simulando "siempre logueado"), en producción: 7 días
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=3650) if DEBUG else timedelta(days=7),
 
     # Permite rotar el Refresh Token (genera uno nuevo al usarlo)
     # Más seguro: el refresh token viejo deja de funcionar

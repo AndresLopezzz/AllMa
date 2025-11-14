@@ -5,6 +5,7 @@ import {
   useParams,
 } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 import {
   Input,
   Button,
@@ -237,15 +238,25 @@ function RouteComponent() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {loadingInventory
-              ? "Cargando..."
-              : (inventory?.name ?? "Inventario")}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Plantilla: {inventory?.template_name ?? "Sin plantilla"}
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate({ to: "/inventories" })}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Regresar
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">
+              {loadingInventory
+                ? "Cargando..."
+                : (inventory?.name ?? "Inventario")}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Plantilla: {inventory?.template_name ?? "Sin plantilla"}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button
