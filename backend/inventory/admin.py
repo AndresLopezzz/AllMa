@@ -55,14 +55,14 @@ class ProductAdmin(admin.ModelAdmin):
     """
     Configuración del admin para Product
     """
-    list_display = ('name', 'sku', 'inventory', 'quantity', 'price', 'get_stock_status', 'category')
-    list_filter = ('inventory', 'category', 'created_at')
+    list_display = ('name', 'sku', 'inventory', 'quantity', 'price', 'get_stock_status', 'category', 'is_active')
+    list_filter = ('inventory', 'category', 'is_active', 'created_at')
     search_fields = ('name', 'sku', 'description')
     readonly_fields = ('created_at', 'updated_at', 'get_stock_status')
 
     fieldsets = (
         ('Información Básica', {
-            'fields': ('name', 'sku', 'description', 'inventory', 'category')
+            'fields': ('name', 'sku', 'description', 'inventory', 'category', 'is_active')
         }),
         ('Inventario y Precio', {
             'fields': ('quantity', 'price', 'low_stock_threshold', 'get_stock_status')

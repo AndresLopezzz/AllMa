@@ -169,7 +169,7 @@ export function useCreateProductMutation() {
       return responseData;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.refetchQueries({ queryKey: ["products"] });
     },
   });
 }
@@ -230,7 +230,7 @@ export function useUpdateProductMutation() {
       return responseData;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.refetchQueries({ queryKey: ["products"] });
     },
   });
 }
@@ -248,7 +248,7 @@ export function useDeleteProductMutation() {
       await apiClient.delete(`/api/products/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.refetchQueries({ queryKey: ["products"] });
     },
   });
 }

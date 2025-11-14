@@ -229,8 +229,10 @@ class ProductSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """
         Override create to attach user from request context for movement tracking.
+        Ensure is_active is True for new products.
         """
         product = Product(**validated_data)
+        product.is_active = True  # Ensure new products are active
         # Get user from context if available
         request = self.context.get('request')
         if request and hasattr(request, 'user'):

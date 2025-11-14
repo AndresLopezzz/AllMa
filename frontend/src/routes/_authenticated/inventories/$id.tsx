@@ -212,6 +212,7 @@ function RouteComponent() {
       if (dialogMode === "create") {
         await createMutation.mutateAsync(data);
         toast.success("Producto creado exitosamente");
+        setPage(1); // Ir a la primera página para ver el nuevo producto
       } else {
         // Para update, enviar el inventory actual (del form, que es el mismo inventario)
         const updateData = {

@@ -480,7 +480,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = ProductFilter
     ordering_fields = ['name', 'sku', 'quantity', 'price', 'created_at']
-    ordering = ['name']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         """
