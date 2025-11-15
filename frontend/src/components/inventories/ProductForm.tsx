@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,14 +63,11 @@ export default function ProductForm({
     } as CreateProductData,
     onSubmit: async ({ value }) => {
       // Validación manual simple con logging
-      console.log("Form value:", value);
       if (!value.name.trim()) {
-        console.error("Validation error: Nombre es requerido");
         toast.error("Nombre es requerido");
         return;
       }
       if (value.quantity < 0) {
-        console.error("Validation error: Cantidad debe ser >= 0");
         toast.error("Cantidad debe ser >= 0");
         return;
       }
@@ -76,7 +75,6 @@ export default function ProductForm({
       if (template?.custom_fields) {
         for (const field of template.custom_fields) {
           if (field.required && !value.custom_data?.[field.name]) {
-            console.error(`Validation error: ${field.name} es requerido`);
             toast.error(`${field.name} es requerido`);
             return;
           }
@@ -426,13 +424,34 @@ export default function ProductForm({
 
       {/* Botones */}
       <div className="flex justify-end gap-2">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting
-            ? "Guardando..."
-            : mode === "create"
-              ? "Crear Producto"
-              : "Actualizar Producto"}
-        </Button>
+        <motion.div
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        >
+          <Button type="submit" disabled={isSubmitting} className="relative">
+            {isSubmitting && (
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{
+                  duration: 1,
+                  repeat: Infinity,
+                  ease: "linear",
+                }}
+                className="absolute left-3"
+              >
+                <Loader2 className="h-4 w-4" />
+              </motion.div>
+            )}
+            <span className={isSubmitting ? "ml-6" : ""}>
+              {isSubmitting
+                ? "Guardando..."
+                : mode === "create"
+                  ? "Crear Producto"
+                  : "Actualizar Producto"}
+            </span>
+          </Button>
+        </motion.div>
       </div>
     </form>
   );

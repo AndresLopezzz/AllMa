@@ -5,7 +5,6 @@ export async function getTemplates() {
     const response = await apiClient.get("/api/templates/");
     return response.data;
   } catch (error) {
-    console.error("Error fetching templates:", error);
     throw error;
   }
 }

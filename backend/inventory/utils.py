@@ -167,6 +167,10 @@ def check_plan_limits(user, action: str) -> tuple[bool, str]:
     from .constants import PLAN_LIMITS, ERROR_MESSAGES
     from .models import Product, Inventory
 
+    # Admins pueden bypass los límites de plan
+    if user.is_staff:
+        return True, ""
+
     # Obtener límites del plan del usuario
     user_plan = user.plan if hasattr(user, 'plan') else 'free'
     limits = PLAN_LIMITS.get(user_plan, PLAN_LIMITS['free'])

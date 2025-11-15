@@ -72,8 +72,10 @@ class Inventory(models.Model):
     template = models.ForeignKey(
         BusinessTemplate,
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name='inventories',
-        help_text="Plantilla de negocio que usa este inventario"
+        help_text="Plantilla de negocio que usa este inventario (opcional)"
     )
     custom_template_fields = models.JSONField(
         default=dict,

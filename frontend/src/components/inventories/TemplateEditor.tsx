@@ -139,18 +139,10 @@ export default function TemplateEditor({
   };
 
   const handleSave = () => {
-    console.log("handleSave called");
-    console.log("fields:", fields);
-    console.log("hasProducts:", hasProducts);
-    console.log("productsCount:", productsCount);
-
     if (!validateFields()) {
-      console.log("Validation failed");
       toast.error("Errores de validación: " + errors.join(" "));
       return;
     }
-
-    console.log("Validation passed");
 
     const processedFields = fields.map((f) => ({
       ...f,
@@ -160,18 +152,14 @@ export default function TemplateEditor({
           : undefined,
     }));
 
-    console.log("Fields to save:", processedFields);
-
     updateMutation.mutate(
       { inventoryId, customFields: processedFields },
       {
         onSuccess: () => {
-          console.log("Template update success");
           toast.success("Plantilla actualizada exitosamente");
           onOpenChange(false);
         },
         onError: (error) => {
-          console.error("Error updating template:", error);
           toast.error("Error al actualizar plantilla");
         },
       },

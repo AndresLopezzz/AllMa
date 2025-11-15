@@ -7,6 +7,9 @@ import {
 } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/AuthStore";
+import NProgress from "nprogress";
+import "nprogress/nprogress.css";
+import logo from "@/assets/logo.svg";
 import {
   Avatar,
   AvatarFallback,
@@ -20,6 +23,10 @@ import {
   Toaster,
 } from "@/components/ui";
 import { ModeToggle } from "@/components/theme";
+import { toast } from "sonner";
+
+// Configure NProgress
+NProgress.configure({ showSpinner: false });
 
 const navItems = [
   { label: "Dashboard", path: "/dashboard" },
@@ -41,6 +48,54 @@ export function AppLayout() {
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  // Dynamic document title
+  useEffect(() => {
+    const path = routerState.location.pathname;
+    let title = "InventoryApp";
+
+    if (path === "/dashboard") {
+      title = "Dashboard | InventoryApp";
+    } else if (path === "/inventories") {
+      title = "Inventarios | InventoryApp";
+    } else if (path.startsWith("/inventories/")) {
+      // For specific inventory pages, we could get the name from route params
+      // For now, use a generic title
+      title = "Inventario | InventoryApp";
+    } else if (path === "/templates") {
+      title = "Plantillas | InventoryApp";
+    } else if (path === "/profile") {
+      title = "Perfil | InventoryApp";
+    }
+
+    document.title = title;
+  }, [routerState.location.pathname]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl+K for global search (placeholder)
+      if (event.ctrlKey && event.key === "k") {
+        event.preventDefault();
+        toast.info("Búsqueda global próximamente disponible");
+      }
+
+      // Esc to close modals (handled by individual components)
+      // This is more of a global handler, but dialogs handle their own ESC
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // NProgress for route changes
+  useEffect(() => {
+    if (routerState.isLoading) {
+      NProgress.start();
+    } else {
+      NProgress.done();
+    }
+  }, [routerState.isLoading]);
 
   // Si no hay tokens, redirigimos a login.
   useEffect(() => {
@@ -83,9 +138,9 @@ export function AppLayout() {
           <div className="flex items-center gap-8">
             <Link
               to="/dashboard"
-              className="text-lg font-semibold text-primary transition-colors hover:text-primary/80"
+              className="flex items-center transition-opacity hover:opacity-80"
             >
-              AllMa
+              <img src={logo} alt="AllMa" className="h-7 w-auto dark:invert" />
             </Link>
             <nav className="flex items-center gap-4">
               {navItems.map((item) => (
@@ -143,6 +198,9 @@ export function AppLayout() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/profile">Perfil</Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleLogout}>
                   Cerrar sesión
                 </DropdownMenuItem>

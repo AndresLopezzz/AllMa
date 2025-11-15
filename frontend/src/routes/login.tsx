@@ -2,6 +2,8 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { login } from "@/lib/api/services/auth";
 import { useAuthStore } from "@/lib/store/AuthStore";
+import { toast } from "sonner";
+import logo from "@/assets/logo.svg";
 import {
   Button,
   Card,
@@ -42,10 +44,10 @@ function Login() {
     try {
       const data = await login(email, password);
       setUser(data.user, { access: data.access, refresh: data.refresh });
-
+      toast.success("Inicio de sesión exitoso");
       navigate({ to: "/dashboard" });
     } catch {
-      setError("Invalid email or password");
+      toast.error("Correo electrónico o contraseña inválidos");
     } finally {
       setLoading(false);
     }
@@ -54,9 +56,12 @@ function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background text-foreground p-6">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Login</CardTitle>
-          <CardDescription>
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img src={logo} alt="AllMa" className="h-8 w-auto dark:invert" />
+          </div>
+          <CardTitle className="flex justify-left">Login</CardTitle>
+          <CardDescription className="flex justify-left">
             Enter your credentials to access your account
           </CardDescription>
         </CardHeader>
@@ -64,7 +69,9 @@ function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="pb-2">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -76,7 +83,9 @@ function Login() {
 
             {/* Password */}
             <div>
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="pb-2">
+                Password
+              </Label>
               <Input
                 id="password"
                 type="password"

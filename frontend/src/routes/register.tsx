@@ -3,6 +3,8 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { register } from "@/lib/api/services/auth";
 import { useAuthStore } from "@/lib/store/AuthStore";
+import { toast } from "sonner";
+import logo from "@/assets/logo.svg";
 import {
   Button,
   Card,
@@ -50,7 +52,7 @@ function Register() {
     setError("");
 
     if (password !== password2) {
-      setError("Las contraseñas no coinciden.");
+      toast.error("Las contraseñas no coinciden.");
       return;
     }
 
@@ -66,12 +68,12 @@ function Register() {
       });
 
       setUser(data.user, { access: data.access, refresh: data.refresh });
+      toast.success("Registro exitoso");
       navigate({ to: "/dashboard" });
     } catch (err) {
-      setError(
+      toast.error(
         "No pudimos crear tu cuenta. Verifica los datos e inténtalo nuevamente.",
       );
-      console.error("Error during registration:", err);
     } finally {
       setLoading(false);
     }
@@ -80,7 +82,10 @@ function Register() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background text-foreground p-6">
       <Card className="w-full max-w-lg">
-        <CardHeader>
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img src={logo} alt="AllMa" className="h-8 w-auto dark:invert" />
+          </div>
           <CardTitle>Crear una cuenta</CardTitle>
           <CardDescription>
             Regístrate para comenzar a gestionar tus inventarios.

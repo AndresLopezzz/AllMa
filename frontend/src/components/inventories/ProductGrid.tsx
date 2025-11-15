@@ -8,9 +8,15 @@ interface Props {
   products: ProductItem[];
   onEdit: (p: ProductItem) => void;
   onDelete: (p: ProductItem) => void;
+  isPending?: boolean;
 }
 
-export default function ProductGrid({ products, onEdit, onDelete }: Props) {
+export default function ProductGrid({
+  products,
+  onEdit,
+  onDelete,
+  isPending = false,
+}: Props) {
   const getStockBadgeVariant = (status?: string) => {
     switch (status) {
       case "En stock":
@@ -71,6 +77,7 @@ export default function ProductGrid({ products, onEdit, onDelete }: Props) {
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => onEdit(p)}
+                disabled={isPending}
               >
                 <Edit className="h-3 w-3" />
               </Button>
@@ -79,6 +86,7 @@ export default function ProductGrid({ products, onEdit, onDelete }: Props) {
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => onDelete(p)}
+                disabled={isPending}
               >
                 <Trash className="h-3 w-3" />
               </Button>

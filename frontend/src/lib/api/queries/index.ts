@@ -3,4 +3,5 @@ export * from "./alerts";
 export * from "./dashboard";
 export * from "./inventories";
 export * from "./products";
+export * from "./profile";
 export * from "./templates";

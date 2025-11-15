@@ -5,7 +5,7 @@ import {
   useParams,
 } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2, Package, Plus } from "lucide-react";
 import {
   Input,
   Button,
@@ -34,6 +34,11 @@ import {
   SelectTrigger,
   SelectValue,
   Checkbox,
+  Card,
+  CardContent,
+  ProductTableSkeleton,
+  ProductGridSkeleton,
+  ProductCardsSkeleton,
 } from "@/components/ui";
 
 import { useInventoryQuery } from "@/lib/api/queries/inventories";
@@ -57,6 +62,7 @@ import ProductForm from "@/components/inventories/ProductForm";
 import ProductGrid from "@/components/inventories/ProductGrid";
 import ProductCards from "@/components/inventories/ProductCards";
 import TemplateEditor from "@/components/inventories/TemplateEditor";
+import { AnimatePresence, motion } from "framer-motion";
 
 export const Route = createFileRoute("/_authenticated/inventories/$id")({
   component: RouteComponent,
@@ -205,10 +211,6 @@ function RouteComponent() {
 
   const handleFormSubmit = async (data: CreateProductData) => {
     try {
-      console.log("Enviando data:", data);
-      console.log("Dialog mode:", dialogMode);
-      console.log("Selected product ID:", selectedProductId);
-      console.log("Product data:", productData);
       if (dialogMode === "create") {
         await createMutation.mutateAsync(data);
         toast.success("Producto creado exitosamente");
@@ -220,17 +222,31 @@ function RouteComponent() {
           id: selectedProductId!,
           inventory: Number(inventoryId), // Siempre el mismo inventario
         };
-        console.log("Update data final:", updateData);
         const result = await updateMutation.mutateAsync(updateData);
-        console.log("Update result:", result);
         toast.success("Producto actualizado exitosamente");
       }
       setDialogOpen(false);
     } catch (error: unknown) {
-      toast.error("Error al guardar el producto");
-      console.error("Error details:", error);
-      const err = error as { response?: { data?: unknown } };
-      console.error("Error response:", err?.response?.data);
+      const err = error as {
+        response?: { data?: { error_code?: string; error?: string } };
+      };
+
+      // Check if plan limit exceeded
+      if (err?.response?.data?.error_code === "plan_limit_exceeded") {
+        toast.warning(
+          "Has alcanzado el límite de tu plan Free (100 productos)",
+          {
+            action: {
+              label: "Mejorar plan",
+              onClick: () => {
+                // Por ahora solo visual, no hace nada
+              },
+            },
+          },
+        );
+      } else {
+        toast.error("Error al guardar el producto");
+      }
     }
   };
 
@@ -243,7 +259,6 @@ function RouteComponent() {
         setProductToDelete(null);
       } catch (error) {
         toast.error("Error al eliminar el producto");
-        console.error(error);
       }
     }
   };
@@ -262,7 +277,9 @@ function RouteComponent() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate({ to: "/inventories" })}
+            onClick={() =>
+              navigate({ to: "/inventories", search: { template: undefined } })
+            }
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Regresar
@@ -282,7 +299,25 @@ function RouteComponent() {
           <Button variant="outline" onClick={() => setTemplateDialogOpen(true)}>
             Configurar Plantilla
           </Button>
-          <Button onClick={handleAddProduct}>Agregar Producto</Button>
+          <Button
+            onClick={handleAddProduct}
+            disabled={
+              createMutation.isPending ||
+              updateMutation.isPending ||
+              deleteMutation.isPending
+            }
+          >
+            {createMutation.isPending ||
+            updateMutation.isPending ||
+            deleteMutation.isPending ? (
+              <>
+                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                Procesando...
+              </>
+            ) : (
+              "Agregar Producto"
+            )}
+          </Button>
         </div>
       </div>
 
@@ -378,18 +413,37 @@ function RouteComponent() {
       {/* Content */}
       <div>
         {loadingProducts ? (
-          // Skeletons para tabla
-          <div className="space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-10 rounded bg-muted/40 animate-pulse" />
-            ))}
-          </div>
+          view === "table" ? (
+            <ProductTableSkeleton />
+          ) : view === "grid" ? (
+            <ProductGridSkeleton />
+          ) : (
+            <ProductCardsSkeleton />
+          )
         ) : productsData?.results && productsData.results.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">
-              No hay productos que coincidan.
-            </p>
-          </div>
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="rounded-full bg-muted p-4 mb-4">
+                <Package className="size-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">
+                {debouncedSearch || category || lowStockOnly
+                  ? "No hay productos que coincidan"
+                  : "Este inventario está vacío"}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-md">
+                {debouncedSearch || category || lowStockOnly
+                  ? "Prueba ajustando los filtros de búsqueda para encontrar lo que buscas."
+                  : "Comienza agregando productos a este inventario. Puedes crear productos individuales o importar desde un archivo."}
+              </p>
+              {!(debouncedSearch || category || lowStockOnly) && (
+                <Button onClick={handleAddProduct}>
+                  <Plus className="mr-2 size-4" />
+                  Agregar Producto
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         ) : (
           <>
             {view === "table" && (
@@ -397,6 +451,11 @@ function RouteComponent() {
                 products={productsForComponents}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                isPending={
+                  createMutation.isPending ||
+                  updateMutation.isPending ||
+                  deleteMutation.isPending
+                }
               />
             )}
 
@@ -405,6 +464,11 @@ function RouteComponent() {
                 products={productsForComponents}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                isPending={
+                  createMutation.isPending ||
+                  updateMutation.isPending ||
+                  deleteMutation.isPending
+                }
               />
             )}
 
@@ -460,41 +524,56 @@ function RouteComponent() {
       )}
 
       {/* Product Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {dialogMode === "create" ? "Crear Producto" : "Editar Producto"}
-            </DialogTitle>
-          </DialogHeader>
-          <ProductForm
-            mode={dialogMode}
-            template={
-              template
-                ? {
-                    id: template.id,
-                    name: template.name,
-                    custom_fields:
-                      inventory?.custom_fields || template.custom_fields,
+      <AnimatePresence>
+        {dialogOpen && (
+          <Dialog open={true} onOpenChange={setDialogOpen}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+            >
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {dialogMode === "create"
+                      ? "Crear Producto"
+                      : "Editar Producto"}
+                  </DialogTitle>
+                </DialogHeader>
+                <ProductForm
+                  mode={dialogMode}
+                  template={
+                    template
+                      ? {
+                          id: template.id,
+                          name: template.name,
+                          custom_fields:
+                            inventory?.custom_fields || template.custom_fields,
+                        }
+                      : undefined
                   }
-                : undefined
-            }
-            initialData={
-              dialogMode === "edit" && productData
-                ? {
-                    ...productData,
-                    inventory: Number(inventoryId),
-                    image_url: productData.image_url,
-                    price: productData.price ?? undefined,
-                    category: productData.category ?? undefined,
+                  initialData={
+                    dialogMode === "edit" && productData
+                      ? {
+                          ...productData,
+                          inventory: Number(inventoryId),
+                          image_url: productData.image_url,
+                          price: productData.price ?? undefined,
+                          category: productData.category ?? undefined,
+                        }
+                      : { inventory: Number(inventoryId) }
                   }
-                : { inventory: Number(inventoryId) }
-            }
-            onSubmit={handleFormSubmit}
-            isSubmitting={createMutation.isPending || updateMutation.isPending}
-          />
-        </DialogContent>
-      </Dialog>
+                  onSubmit={handleFormSubmit}
+                  isSubmitting={
+                    createMutation.isPending || updateMutation.isPending
+                  }
+                />
+              </DialogContent>
+            </motion.div>
+          </Dialog>
+        )}
+      </AnimatePresence>
 
       {/* Delete Alert Dialog */}
       <AlertDialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>

@@ -76,11 +76,15 @@ class BusinessTemplateSerializer(serializers.ModelSerializer):
 
 class InventoryListSerializer(serializers.ModelSerializer):
     """
-    Serializer simplificado para listar inventarios (sin productos).
+    Serializer ligero para listas de inventarios.
     Se usa en listas para no cargar demasiada data.
     """
     owner_name = serializers.CharField(source='owner.name', read_only=True)
-    template_name = serializers.CharField(source='template.name', read_only=True)
+    template_name = serializers.SerializerMethodField(read_only=True)
+
+    def get_template_name(self, obj):
+        """Devuelve el nombre de la plantilla o None si no hay plantilla"""
+        return obj.template.name if obj.template else None
 
     class Meta:
         model = Inventory
@@ -103,8 +107,15 @@ class InventoryDetailSerializer(serializers.ModelSerializer):
     Incluye la plantilla completa con sus custom_fields.
     """
     owner_name = serializers.CharField(source='owner.name', read_only=True)
-    template_data = BusinessTemplateSerializer(source='template', read_only=True)
+    template_data = serializers.SerializerMethodField(read_only=True)
     custom_fields = serializers.SerializerMethodField(read_only=True)
+
+    def get_template_data(self, obj):
+        """Devuelve los datos de la plantilla o None si no hay plantilla"""
+        if obj.template:
+            serializer = BusinessTemplateSerializer(obj.template)
+            return serializer.data
+        return None
 
     def get_custom_fields(self, obj):
         """
@@ -427,21 +438,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
         return data
 
-    def validate_quantity(self, value):
-        """
-        Valida que la cantidad sea >= 0
-        """
-        if value < 0:
-            raise serializers.ValidationError("La cantidad no puede ser negativa")
-        return value
 
-    def validate_price(self, value):
-        """
-        Valida que el precio sea >= 0
-        """
-        if value < 0:
-            raise serializers.ValidationError("El precio no puede ser negativo")
-        return value
 
 
 class AlertSerializer(serializers.ModelSerializer):

@@ -137,7 +137,7 @@ export function useCreateProductMutation() {
       if (data.sku) formData.append("sku", data.sku);
       if (data.description) formData.append("description", data.description);
       formData.append("quantity", data.quantity.toString());
-      if (data.price != null) formData.append("price", data.price.toString());
+      if (data.price != null) formData.append("price", data.price.toFixed(2));
       if (data.low_stock_threshold)
         formData.append(
           "low_stock_threshold",
@@ -168,8 +168,61 @@ export function useCreateProductMutation() {
 
       return responseData;
     },
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["products"] });
+    onMutate: async (newProduct) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["products"] });
+
+      // Snapshot the previous value
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: ["products"],
+      });
+
+      // Optimistically update to the new value
+      queryClient.setQueriesData(
+        { queryKey: ["products"] },
+        (oldData: ProductsResponse | undefined) => {
+          if (!oldData) return oldData;
+
+          // For each products query, add the new product
+          return {
+            ...oldData,
+            results: [
+              {
+                id: Date.now(), // Temporary ID
+                ...newProduct,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                is_low_stock:
+                  newProduct.quantity <= (newProduct.low_stock_threshold || 10),
+                is_out_of_stock: newProduct.quantity === 0,
+                stock_status:
+                  newProduct.quantity === 0
+                    ? "Sin stock"
+                    : newProduct.quantity <=
+                        (newProduct.low_stock_threshold || 10)
+                      ? "Stock bajo"
+                      : "En stock",
+              } as ProductItem,
+              ...oldData.results,
+            ],
+            count: oldData.count + 1,
+          };
+        },
+      );
+
+      // Return a context object with the snapshotted value
+      return { previousProducts };
+    },
+    onError: (_err, _newProduct, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 }
@@ -229,8 +282,64 @@ export function useUpdateProductMutation() {
 
       return responseData;
     },
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["products"] });
+    onMutate: async (updatedProduct) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["products"] });
+
+      // Snapshot the previous value
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: ["products"],
+      });
+
+      // Optimistically update to the new value
+      queryClient.setQueriesData(
+        { queryKey: ["products"] },
+        (oldData: ProductsResponse | undefined) => {
+          if (!oldData) return oldData;
+
+          return {
+            ...oldData,
+            results: oldData.results.map((product: ProductItem) =>
+              product.id === updatedProduct.id
+                ? {
+                    ...product,
+                    ...updatedProduct,
+                    updated_at: new Date().toISOString(),
+                    is_low_stock:
+                      updatedProduct.quantity <=
+                      (updatedProduct.low_stock_threshold ||
+                        product.low_stock_threshold ||
+                        10),
+                    is_out_of_stock: updatedProduct.quantity === 0,
+                    stock_status:
+                      updatedProduct.quantity === 0
+                        ? "Sin stock"
+                        : updatedProduct.quantity <=
+                            (updatedProduct.low_stock_threshold ||
+                              product.low_stock_threshold ||
+                              10)
+                          ? "Stock bajo"
+                          : "En stock",
+                  }
+                : product,
+            ),
+          };
+        },
+      );
+
+      // Return a context object with the snapshotted value
+      return { previousProducts };
+    },
+    onError: (_err, _updatedProduct, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 }
@@ -247,8 +356,44 @@ export function useDeleteProductMutation() {
     mutationFn: async (id: number): Promise<void> => {
       await apiClient.delete(`/api/products/${id}/`);
     },
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["products"] });
+    onMutate: async (deletedProductId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["products"] });
+
+      // Snapshot the previous value
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: ["products"],
+      });
+
+      // Optimistically update to the new value
+      queryClient.setQueriesData(
+        { queryKey: ["products"] },
+        (oldData: ProductsResponse | undefined) => {
+          if (!oldData) return oldData;
+
+          return {
+            ...oldData,
+            results: oldData.results.filter(
+              (product: ProductItem) => product.id !== deletedProductId,
+            ),
+            count: oldData.count - 1,
+          };
+        },
+      );
+
+      // Return a context object with the snapshotted value
+      return { previousProducts };
+    },
+    onError: (_err, _deletedProductId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 }
@@ -268,8 +413,10 @@ export function useCategoriesQuery(inventoryId: string | number) {
         `/api/products/?inventory=${inventoryId}&page_size=100`;
 
       while (nextUrl) {
-        const { data } = await apiClient.get<ProductsResponse>(nextUrl);
-        data.results.forEach((product) => {
+        const response: { data: ProductsResponse } =
+          await apiClient.get<ProductsResponse>(nextUrl);
+        const data: ProductsResponse = response.data;
+        data.results.forEach((product: ProductItem) => {
           if (product.category) categories.add(product.category);
         });
         nextUrl = data.next;

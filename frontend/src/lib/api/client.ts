@@ -52,7 +52,6 @@ apiClient.interceptors.request.use(
             delete config.headers.Authorization;
           }
         } catch (error) {
-          console.warn("Failed to parse auth tokens:", error);
           localStorage.removeItem("auth-tokens");
           localStorage.removeItem("auth-user");
         }

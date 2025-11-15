@@ -6,9 +6,15 @@ interface Props {
   products: ProductItem[];
   onEdit: (p: ProductItem) => void;
   onDelete: (p: ProductItem) => void;
+  isPending?: boolean;
 }
 
-export default function ProductTable({ products, onEdit, onDelete }: Props) {
+export default function ProductTable({
+  products,
+  onEdit,
+  onDelete,
+  isPending = false,
+}: Props) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full table-auto">
@@ -53,13 +59,19 @@ export default function ProductTable({ products, onEdit, onDelete }: Props) {
               <td className="p-2">{p.category ?? "-"}</td>
               <td className="p-2">
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => onEdit(p)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onEdit(p)}
+                    disabled={isPending}
+                  >
                     <Edit className="size-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => onDelete(p)}
+                    disabled={isPending}
                   >
                     <Trash className="size-4 text-destructive" />
                   </Button>

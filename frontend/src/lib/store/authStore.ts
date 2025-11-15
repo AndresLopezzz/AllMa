@@ -4,7 +4,7 @@ export interface User {
   id: number;
   email: string;
   name: string;
-  plan: "free" | "pro" | "premiun";
+  plan: "free" | "pro" | "premium";
 }
 
 export interface Tokens {

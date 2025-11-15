@@ -33,7 +33,6 @@ export async function login(email: string, password: string) {
 
     return response.data;
   } catch (error) {
-    console.error("Error during login:", error);
     throw error;
   }
 }
@@ -63,7 +62,6 @@ export async function register({
       message: response.data.message,
     };
   } catch (error) {
-    console.error("Error during register:", error);
     throw error;
   }
 }
