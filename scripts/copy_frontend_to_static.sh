@@ -48,6 +48,10 @@ python - <<'PY'
 from pathlib import Path
 import shutil, os, sys
 
+# Ensure the repo root is on sys.path so Django's 'backend' package can be imported.
+# This script runs from the repo root (see earlier cd "$REPO_ROOT"), so adding cwd is sufficient.
+sys.path.insert(0, str(Path.cwd()))
+
 # Ensure Django settings are available
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
 
