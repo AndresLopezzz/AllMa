@@ -1,1 +1,58 @@
+name: CI
 
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun (for frontend)
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.0.0" # use an appropriate bun version; runner will install if needed
+
+      - name: Install and build frontend with Bun
+        working-directory: frontend
+        run: |
+          bun install
+          bun run build
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt
+
+      - name: Copy frontend build into Django STATIC_ROOT
+        # Use the repository script which reads Django settings to find STATIC_ROOT.
+        # The script expects Django available (installed in the previous step).
+        run: |
+          chmod +x inventory/scripts/copy_frontend_to_static.sh || true
+          bash inventory/scripts/copy_frontend_to_static.sh
+
+      - name: Collect static files
+        env:
+          DJANGO_SETTINGS_MODULE: backend.settings
+        run: |
+          python backend/manage.py collectstatic --noinput -v 2
+
+      - name: Run tests
+        env:
+          DJANGO_SETTINGS_MODULE: backend.settings
+        run: |
+          python -m pytest -q
