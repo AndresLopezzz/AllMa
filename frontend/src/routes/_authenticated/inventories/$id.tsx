@@ -56,6 +56,8 @@ import {
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
+  useRestoreProductMutation,
+  useHardDeleteProductMutation,
 } from "@/lib/api/queries/products";
 import ProductTable from "@/components/inventories/ProductTable";
 import ProductForm from "@/components/inventories/ProductForm";
@@ -88,6 +90,7 @@ function RouteComponent() {
     return (saved as "table" | "grid" | "cards") || "table";
   });
   const [page, setPage] = useState(1);
+  const [showTrash, setShowTrash] = useState(false);
   //para cambiar cuantos elementos por pag
   const pageSize = 15;
 
@@ -157,6 +160,8 @@ function RouteComponent() {
   const createMutation = useCreateProductMutation();
   const updateMutation = useUpdateProductMutation();
   const deleteMutation = useDeleteProductMutation();
+  const restoreMutation = useRestoreProductMutation();
+  const hardDeleteMutation = useHardDeleteProductMutation();
 
   // Build filters for query, derived from debounced state
   const filters = useMemo(
@@ -166,8 +171,10 @@ function RouteComponent() {
       low_stock: lowStockOnly ?? undefined,
       page,
       page_size: pageSize,
+      // If user toggles the trash view, request only trashed items
+      trashed_only: showTrash ? true : undefined,
     }),
-    [debouncedSearch, category, lowStockOnly, page],
+    [debouncedSearch, category, lowStockOnly, page, showTrash],
   );
 
   // Fetch products
@@ -222,17 +229,17 @@ function RouteComponent() {
           id: selectedProductId!,
           inventory: Number(inventoryId), // Siempre el mismo inventario
         };
-        const result = await updateMutation.mutateAsync(updateData);
+        await updateMutation.mutateAsync(updateData);
         toast.success("Producto actualizado exitosamente");
       }
       setDialogOpen(false);
-    } catch (error: unknown) {
-      const err = error as {
+    } catch (err: unknown) {
+      const error = err as {
         response?: { data?: { error_code?: string; error?: string } };
       };
 
       // Check if plan limit exceeded
-      if (err?.response?.data?.error_code === "plan_limit_exceeded") {
+      if (error?.response?.data?.error_code === "plan_limit_exceeded") {
         toast.warning(
           "Has alcanzado el límite de tu plan Free (100 productos)",
           {
@@ -253,11 +260,18 @@ function RouteComponent() {
   const handleConfirmDelete = async () => {
     if (productToDelete) {
       try {
-        await deleteMutation.mutateAsync(productToDelete.id);
-        toast.success("Producto eliminado exitosamente");
+        if (showTrash) {
+          // Permanently delete when viewing the trash
+          await hardDeleteMutation.mutateAsync(productToDelete.id);
+          toast.success("Producto eliminado permanentemente");
+        } else {
+          // Soft-delete (move to trash)
+          await deleteMutation.mutateAsync(productToDelete.id);
+          toast.success("Producto eliminado (movido a la papelera)");
+        }
         setAlertDialogOpen(false);
         setProductToDelete(null);
-      } catch (error) {
+      } catch {
         toast.error("Error al eliminar el producto");
       }
     }
@@ -296,12 +310,24 @@ function RouteComponent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setTemplateDialogOpen(true)}>
+          <Button
+            variant={showTrash ? "outline" : "default"}
+            onClick={() => setShowTrash((s) => !s)}
+            title={showTrash ? "Ver productos activos" : "Ver papelera"}
+          >
+            {showTrash ? "Volver" : "Papelera"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setTemplateDialogOpen(true)}
+            disabled={showTrash}
+          >
             Configurar Plantilla
           </Button>
           <Button
             onClick={handleAddProduct}
             disabled={
+              showTrash ||
               createMutation.isPending ||
               updateMutation.isPending ||
               deleteMutation.isPending
@@ -446,20 +472,94 @@ function RouteComponent() {
           </Card>
         ) : (
           <>
-            {view === "table" && (
-              <ProductTable
-                products={productsForComponents}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                isPending={
-                  createMutation.isPending ||
-                  updateMutation.isPending ||
-                  deleteMutation.isPending
-                }
-              />
-            )}
+            {view === "table" &&
+              (showTrash ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full table-auto">
+                    <thead>
+                      <tr className="text-left text-sm text-muted-foreground border-b">
+                        <th className="p-2">Imagen</th>
+                        <th className="p-2">Nombre</th>
+                        <th className="p-2">SKU</th>
+                        <th className="p-2">Cantidad</th>
+                        <th className="p-2">Fecha eliminación</th>
+                        <th className="p-2">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productsForComponents.map((p) =>
+                        p.deleted_at ? (
+                          <tr key={p.id} className="odd:bg-muted/5">
+                            <td className="p-2 w-20">
+                              {p.image_url ? (
+                                <img
+                                  src={p.image_url}
+                                  alt={p.name}
+                                  className="h-10 w-10 object-cover rounded"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded bg-muted/30 flex items-center justify-center text-xs text-muted-foreground">
+                                  No
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-2">{p.name}</td>
+                            <td className="p-2">{p.sku ?? "-"}</td>
+                            <td className="p-2">{p.quantity}</td>
+                            <td className="p-2">
+                              {p.deleted_at
+                                ? new Date(
+                                    String(p.deleted_at),
+                                  ).toLocaleString()
+                                : "-"}
+                            </td>
+                            <td className="p-2">
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={async () => {
+                                    try {
+                                      await restoreMutation.mutateAsync(p.id);
+                                      toast.success("Producto restaurado");
+                                    } catch {
+                                      toast.error("Error al restaurar");
+                                    }
+                                  }}
+                                  disabled={restoreMutation.isPending}
+                                >
+                                  Restaurar
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  onClick={() => {
+                                    setProductToDelete(p);
+                                    setAlertDialogOpen(true);
+                                  }}
+                                  disabled={hardDeleteMutation.isPending}
+                                >
+                                  Borrar permanentemente
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null,
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <ProductTable
+                  products={productsForComponents}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  isPending={
+                    createMutation.isPending ||
+                    updateMutation.isPending ||
+                    deleteMutation.isPending
+                  }
+                />
+              ))}
 
-            {view === "grid" && (
+            {view === "grid" && !showTrash && (
               <ProductGrid
                 products={productsForComponents}
                 onEdit={handleEdit}
@@ -472,7 +572,7 @@ function RouteComponent() {
               />
             )}
 
-            {view === "cards" && (
+            {view === "cards" && !showTrash && (
               <ProductCards products={productsForComponents} />
             )}
           </>
@@ -579,21 +679,41 @@ function RouteComponent() {
       <AlertDialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {showTrash
+                ? "Confirmar borrado permanente"
+                : "¿Eliminar producto?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El producto será marcado como
-              eliminado.
+              {showTrash
+                ? "Esta acción eliminará el producto permanentemente y no se podrá recuperar."
+                : "Esta acción no se puede deshacer. El producto será marcado como eliminado (movido a la papelera)."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setProductToDelete(null)}>
+            <AlertDialogCancel
+              onClick={() => {
+                setProductToDelete(null);
+                setAlertDialogOpen(false);
+              }}
+            >
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              disabled={deleteMutation.isPending}
+              disabled={
+                showTrash
+                  ? hardDeleteMutation.isPending
+                  : deleteMutation.isPending
+              }
             >
-              {deleteMutation.isPending ? "Eliminando..." : "Eliminar"}
+              {showTrash
+                ? hardDeleteMutation.isPending
+                  ? "Eliminando..."
+                  : "Eliminar permanentemente"
+                : deleteMutation.isPending
+                  ? "Eliminando..."
+                  : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

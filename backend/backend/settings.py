@@ -171,6 +171,19 @@ DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Configuración de la papelera (trash)
+# TTL por defecto en días: los objetos soft-deleted con deleted_at más antiguos
+# que este valor serán elegibles para borrado permanente por el comando `clean_trash`.
+# Puedes sobreescribirlo en tu .env añadiendo TRASH_TTL_DAYS=2
+TRASH_TTL_DAYS = config('TRASH_TTL_DAYS', default=2, cast=int)
+
+# Opciones para exponer (si se desea) un endpoint administrativo que dispare
+# la limpieza de la papelera. Por seguridad, por defecto está deshabilitado.
+# Si lo habilitas, implementa en el backend una vista segura que verifique
+# CLEAN_TRASH_ADMIN_SECRET para autorizar la acción.
+ENABLE_CLEAN_TRASH_ADMIN_ENDPOINT = config('ENABLE_CLEAN_TRASH_ADMIN_ENDPOINT', default=False, cast=bool)
+CLEAN_TRASH_ADMIN_SECRET = config('CLEAN_TRASH_ADMIN_SECRET', default='', cast=str)
+
 # Django Debug Toolbar Configuration
 INTERNAL_IPS = [
     '127.0.0.1',

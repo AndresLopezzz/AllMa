@@ -17,4 +17,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
     path('alerts/', AlertView.as_view(), name='alerts'),
+    # Admin management endpoints (optional feature)
+    # Mounts the admin-only management views (e.g. clean_trash) under /api/admin/
+    path('admin/', include('inventory.api_admin.management_views')),
 ]

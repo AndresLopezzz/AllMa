@@ -1,9 +1,16 @@
-import { ErrorBoundary as ReactErrorBoundary } from 'react-error-boundary';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
+import * as React from "react";
+import { ErrorBoundary as ReactErrorBoundary } from "react-error-boundary";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
 
-function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+function ErrorFallback({
+  error,
+  resetErrorBoundary,
+}: {
+  error: Error;
+  resetErrorBoundary: () => void;
+}) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-6">
       <Card className="w-full max-w-md">
@@ -12,7 +19,8 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground">
-            Ha ocurrido un error inesperado. Por favor, intenta recargar la página.
+            Ha ocurrido un error inesperado. Por favor, intenta recargar la
+            página.
           </p>
           <details className="text-sm text-muted-foreground">
             <summary>Detalles del error</summary>
@@ -27,10 +35,10 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
   );
 }
 
-function logError(error: Error, errorInfo: { componentStack: string }) {
+function logError(error: Error, info: React.ErrorInfo | null) {
   // Log to console for now
-  console.error('Error caught by boundary:', error, errorInfo);
-  toast.error('Ha ocurrido un error en la aplicación');
+  console.error("Error caught by boundary:", error, info);
+  toast.error("Ha ocurrido un error en la aplicación");
 }
 
 export function ErrorBoundary({ children }: { children: React.ReactNode }) {

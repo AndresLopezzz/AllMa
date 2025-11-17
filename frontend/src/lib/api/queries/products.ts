@@ -20,6 +20,9 @@ export interface ProductItem {
   template_info?: Array<{ name: string; type: string; required: boolean }>;
   created_at?: string;
   updated_at?: string;
+  // Papelera / soft-delete
+  deleted_at?: string | null;
+  trashed?: boolean;
   // otros campos opcionales que la API pudiera devolver
 }
 
@@ -64,6 +67,10 @@ export function useProductsQuery(
     low_stock?: boolean;
     page?: number;
     page_size?: number;
+    // New: control inclusion of trashed / soft-deleted items
+    include_trashed?: boolean; // include trashed items alongside active ones
+    trashed_only?: boolean; // return only trashed items
+    include_inactive?: boolean; // compatibility flag (keeps previous behavior)
   },
 ) {
   const queryKey = ["products", inventoryId, filters];
@@ -85,6 +92,11 @@ export function useProductsQuery(
       if (typeof filters?.low_stock !== "undefined")
         params.low_stock = filters.low_stock ? 1 : 0;
       if (typeof filters?.page !== "undefined") params.page = filters.page;
+
+      // Trashed controls (backend accepts `include_trashed`, `trashed_only`, `include_inactive`)
+      if (filters?.include_trashed) params.include_trashed = 1;
+      if (filters?.trashed_only) params.trashed_only = 1;
+      if (filters?.include_inactive) params.include_inactive = 1;
 
       const { data } = await apiClient.get<ProductsResponse>("/api/products/", {
         params,
@@ -346,14 +358,18 @@ export function useUpdateProductMutation() {
 
 /**
  * useDeleteProductMutation
- * - DELETE /api/products/{id}/
+ * - DELETE /api/products/{id}/ (soft-delete via backend)
  * - Invalida queries de productos al éxito
+ *
+ * Note: the backend will soft-delete by default (move to trash). For a hard delete
+ * use useHardDeleteProductMutation (admin).
  */
 export function useDeleteProductMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: number): Promise<void> => {
+      // default delete is soft-delete (backend marks is_active=false + deleted_at)
       await apiClient.delete(`/api/products/${id}/`);
     },
     onMutate: async (deletedProductId) => {
@@ -365,7 +381,7 @@ export function useDeleteProductMutation() {
         queryKey: ["products"],
       });
 
-      // Optimistically update to the new value
+      // Optimistically update to the new value (remove from current lists)
       queryClient.setQueriesData(
         { queryKey: ["products"] },
         (oldData: ProductsResponse | undefined) => {
@@ -376,7 +392,7 @@ export function useDeleteProductMutation() {
             results: oldData.results.filter(
               (product: ProductItem) => product.id !== deletedProductId,
             ),
-            count: oldData.count - 1,
+            count: Math.max(0, oldData.count - 1),
           };
         },
       );
@@ -394,6 +410,113 @@ export function useDeleteProductMutation() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+
+/**
+ * useRestoreProductMutation
+ * - POST /api/products/{id}/restore/
+ * - Restores a soft-deleted product (clears deleted_at and sets is_active=true)
+ */
+export function useRestoreProductMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number): Promise<void> => {
+      await apiClient.post(`/api/products/${id}/restore/`);
+    },
+    onMutate: async (restoredId) => {
+      await queryClient.cancelQueries({ queryKey: ["products"] });
+
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: ["products"],
+      });
+
+      // Try to optimistically mark product as restored in any cached pages
+      queryClient.setQueriesData(
+        { queryKey: ["products"] },
+        (oldData: ProductsResponse | undefined) => {
+          if (!oldData) return oldData;
+
+          return {
+            ...oldData,
+            results: oldData.results.map((product: ProductItem) =>
+              product.id === restoredId
+                ? {
+                    ...product,
+                    is_active: true,
+                    deleted_at: undefined,
+                  }
+                : product,
+            ),
+          };
+        },
+      );
+
+      return { previousProducts };
+    },
+    onError: (_err, _restoredId, context) => {
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product"] });
+    },
+  });
+}
+
+/**
+ * useHardDeleteProductMutation
+ * - DELETE /api/products/{id}/?hard_delete=true
+ * - For admin-only permanent deletion (hard delete)
+ */
+export function useHardDeleteProductMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number): Promise<void> => {
+      await apiClient.delete(`/api/products/${id}/?hard_delete=true`);
+    },
+    onMutate: async (deletedProductId) => {
+      await queryClient.cancelQueries({ queryKey: ["products"] });
+
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: ["products"],
+      });
+
+      // Optimistically remove the product from lists
+      queryClient.setQueriesData(
+        { queryKey: ["products"] },
+        (oldData: ProductsResponse | undefined) => {
+          if (!oldData) return oldData;
+
+          return {
+            ...oldData,
+            results: oldData.results.filter(
+              (product: ProductItem) => product.id !== deletedProductId,
+            ),
+            count: Math.max(0, oldData.count - 1),
+          };
+        },
+      );
+
+      return { previousProducts };
+    },
+    onError: (_err, _deletedProductId, context) => {
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product"] });
     },
   });
 }

@@ -154,6 +154,7 @@ class ProductSerializer(serializers.ModelSerializer):
     template_info = serializers.SerializerMethodField(read_only=True)
     image_url = serializers.SerializerMethodField(read_only=True)
     image_versions = serializers.SerializerMethodField(read_only=True)
+    trashed = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Product
@@ -177,10 +178,12 @@ class ProductSerializer(serializers.ModelSerializer):
             'is_low_stock',
             'is_out_of_stock',
             'is_active',
+            'deleted_at',
+            'trashed',
             'created_at',
             'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'deleted_at']
 
     def get_template_info(self, obj):
         """
@@ -236,6 +239,12 @@ class ProductSerializer(serializers.ModelSerializer):
         }
 
         return versions
+
+    def get_trashed(self, obj):
+        """
+        Indica si el producto está en la papelera (deleted_at no es None).
+        """
+        return bool(obj.deleted_at)
 
     def create(self, validated_data):
         """

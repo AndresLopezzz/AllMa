@@ -1,13 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../client";
 
+export interface CustomField {
+  name: string;
+  type: string;
+  required: boolean;
+  options?: string[];
+}
+
 export interface InventoryItem {
   id: number;
   name: string;
   owner: number;
   template: number | null;
   template_name: string | null;
-  custom_fields?: any[];
+  custom_fields?: CustomField[];
   created_at: string;
   updated_at: string;
 }

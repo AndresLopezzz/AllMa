@@ -170,6 +170,13 @@ class Product(models.Model):
         help_text="Si es False, el producto está eliminado (soft delete)"
     )
 
+    # Marca temporal de eliminación (soft-delete). Si no es None, indica cuándo fue borrado.
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when the product was soft-deleted (kept in trash for configurable period)"
+    )
+
     # Alertas
     alert_sent = models.BooleanField(
         default=False,
@@ -179,6 +186,43 @@ class Product(models.Model):
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def delete(self, using=None, keep_parents=False):
+        """
+        Soft delete: marcar como inactivo y asignar deleted_at.
+        Para borrado físico usar hard_delete_older_than() o .hard_delete() si se implementa.
+        """
+        from django.utils import timezone
+        # marcar como eliminado y poner timestamp
+        self.is_active = False
+        self.deleted_at = timezone.now()
+        # actualizar timestamps relevantes
+        self.save(update_fields=['is_active', 'deleted_at', 'updated_at'])
+
+    def restore(self):
+        """
+        Restaurar un producto eliminado (soft delete).
+        Resetea is_active y deleted_at.
+        """
+        self.is_active = True
+        self.deleted_at = None
+        self.save(update_fields=['is_active', 'deleted_at', 'updated_at'])
+
+    @classmethod
+    def hard_delete_older_than(cls, days=2):
+        """
+        Borrar permanentemente productos que llevan más de `days` días en la papelera.
+        Devuelve la cantidad de objetos eliminados.
+
+        Nota: este método puede llamarse desde un comando de management o un job periódico
+        (ej. cron / scheduler) para limpiar la papelera automáticamente.
+        """
+        from django.utils import timezone
+        cutoff = timezone.now() - timezone.timedelta(days=days)
+        qs = cls.objects.filter(deleted_at__isnull=False, deleted_at__lt=cutoff)
+        count = qs.count()
+        qs.delete()
+        return count
 
     class Meta:
         verbose_name = "Producto"

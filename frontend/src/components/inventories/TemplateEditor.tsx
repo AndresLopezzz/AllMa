@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus } from "lucide-react";
 import { useUpdateTemplateFieldsMutation } from "@/lib/api/queries/inventories";
+import type { CustomField as ApiCustomField } from "@/lib/api/queries/inventories";
 import { toast } from "sonner";
 import apiClient from "@/lib/api/client";
 
@@ -38,7 +39,8 @@ interface TemplateEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inventoryId: string | number;
-  initialFields: CustomField[];
+  // optional: may be undefined when not provided
+  initialFields?: ApiCustomField[];
 }
 
 export default function TemplateEditor({
@@ -47,7 +49,37 @@ export default function TemplateEditor({
   inventoryId,
   initialFields,
 }: TemplateEditorProps) {
-  const [fields, setFields] = useState<CustomField[]>(initialFields || []);
+  // Initialize fields from the incoming API shape. Coerce/validate the incoming
+  // `type` string into the local union type to satisfy TypeScript and keep the UI stable.
+  const [fields, setFields] = useState<CustomField[]>(() => {
+    const arr = initialFields ?? [];
+    const allowedTypes = [
+      "text",
+      "number",
+      "select",
+      "textarea",
+      "date",
+    ] as const;
+    return arr.map((f) => {
+      // Determine a safe local FieldType value
+      const ft =
+        typeof f.type === "string" &&
+        (allowedTypes as readonly string[]).includes(f.type)
+          ? (f.type as CustomField["type"])
+          : ("text" as CustomField["type"]);
+
+      return {
+        name: f.name ?? "",
+        type: ft,
+        required: !!f.required,
+        options: Array.isArray(f.options)
+          ? f.options.join("\n")
+          : typeof f.options === "string"
+            ? f.options
+            : "",
+      } as CustomField;
+    });
+  });
   const [errors, setErrors] = useState<string[]>([]);
 
   const updateMutation = useUpdateTemplateFieldsMutation();
@@ -66,14 +98,10 @@ export default function TemplateEditor({
 
   const hasProducts = (productsCount || 0) > 0;
 
-  useEffect(() => {
-    setFields(
-      (initialFields || []).map((f) => ({
-        ...f,
-        options: f.options?.join("\n") || "",
-      })),
-    );
-  }, [initialFields]);
+  // No effect required: fields are initialized once from props above.
+  // If you intentionally want to react to prop changes, consider a controlled
+  // approach or an explicit 'Reset' action. For now we avoid synchronous
+  // setState in an effect to prevent cascading renders.
 
   const addField = () => {
     setFields([...fields, { name: "", type: "text", required: false }]);
@@ -108,7 +136,7 @@ export default function TemplateEditor({
     }
 
     // Verificar options para select
-    fields.forEach((field, index) => {
+    fields.forEach((field) => {
       if (
         field.type === "select" &&
         (!field.options ||
@@ -159,7 +187,7 @@ export default function TemplateEditor({
           toast.success("Plantilla actualizada exitosamente");
           onOpenChange(false);
         },
-        onError: (error) => {
+        onError: () => {
           toast.error("Error al actualizar plantilla");
         },
       },
@@ -201,7 +229,7 @@ export default function TemplateEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[50vw] h-[80vh] !max-w-[1150px] overflow-auto">
+      <DialogContent className="w-[50vw] h-[80vh] max-w-[1150px]! overflow-auto">
         <DialogHeader>
           <DialogTitle>Configurar Plantilla</DialogTitle>
           <DialogDescription>

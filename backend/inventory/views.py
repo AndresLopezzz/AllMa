@@ -488,7 +488,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         Admins ven todos.
 
         Filtros adicionales:
-        - ?include_inactive=true - Incluir productos eliminados (soft delete)
+        - ?include_inactive=true - (compatibilidad) no filtra por is_active
+        - ?include_trashed=true - incluir también productos que están en la papelera (deleted_at IS NOT NULL)
+        - ?trashed_only=true - devolver únicamente productos que están en la papelera
         """
         user = self.request.user
 
@@ -497,9 +499,22 @@ class ProductViewSet(viewsets.ModelViewSet):
         else:
             queryset = Product.objects.filter(inventory__owner=user).select_related('inventory')
 
-        # Por defecto, solo mostrar productos activos (no eliminados)
-        if not self.request.query_params.get('include_inactive'):
-            queryset = queryset.filter(is_active=True)
+        # Parámetros para controlar inclusión de eliminados/papelera
+        params = self.request.query_params
+        include_inactive = params.get('include_inactive', '').lower() in ['true', '1']
+        include_trashed = params.get('include_trashed', '').lower() in ['true', '1']
+        trashed_only = params.get('trashed_only', '').lower() in ['true', '1']
+
+        if trashed_only:
+            # Solo productos en la papelera (soft-deleted)
+            queryset = queryset.filter(is_active=False, deleted_at__isnull=False)
+        elif include_trashed:
+            # Incluir también los productos en la papelera: no filtramos por is_active
+            pass  # dejamos el queryset tal cual (incluye activos e inactivos)
+        else:
+            # Por defecto, solo mostrar productos activos (no eliminados)
+            if not include_inactive:
+                queryset = queryset.filter(is_active=True)
 
         return queryset
 
@@ -541,23 +556,61 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         serializer.save()
 
+    def destroy(self, request, *args, **kwargs):
+        """
+        Override destroy to allow hard-delete when requested via ?hard_delete=true.
+
+        The default `destroy` uses `get_object()` which filters the queryset and
+        may exclude soft-deleted objects (is_active=False). When a hard delete
+        is requested we fetch the Product directly (ignoring the viewset queryset)
+        and then verify the requester has permission to permanently delete it.
+
+        Permission: allow if the requester is an admin (`is_staff`) OR the owner
+        of the inventory to which the product belongs.
+        """
+        # Only consider special behavior when hard_delete is requested
+        if request.query_params.get('hard_delete') == 'true':
+            pk = kwargs.get('pk')
+            try:
+                # Fetch product regardless of is_active (include soft-deleted)
+                product = Product.objects.select_related('inventory').get(pk=pk)
+            except Product.DoesNotExist:
+                return Response({'detail': 'Producto no encontrado.'}, status=404)
+
+            # Permission check: allow admin or the inventory owner
+            from rest_framework.exceptions import PermissionDenied
+            if not (request.user.is_staff or product.inventory.owner == request.user):
+                raise PermissionDenied("No puedes eliminar productos de un inventario que no te pertenece")
+
+            # Perform an unconditional QuerySet.delete() to ensure physical deletion
+            Product.objects.filter(pk=product.pk).delete()
+            return Response(status=204)
+
+        # Fallback to the normal flow (will call perform_destroy and the usual checks)
+        return super().destroy(request, *args, **kwargs)
+
     def perform_destroy(self, instance):
         """
-        Soft delete: en lugar de eliminar, marca como is_active=False.
-        Los admins pueden usar ?hard_delete=true para eliminar permanentemente.
+        Soft delete: en lugar de eliminar físicamente, mueve el producto a la papelera
+        marcando `is_active=False` y registrando `deleted_at`.
+
+        Para borrado físico (hard delete) los admins pueden usar ?hard_delete=true,
+        lo cual ejecuta un borrado a nivel de QuerySet (SQL) para evitar el override
+        de `Model.delete()` y eliminar el registro permanentemente.
         """
+        from rest_framework.exceptions import PermissionDenied
+
         # Verificar permisos
         if not self.request.user.is_staff and instance.inventory.owner != self.request.user:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("No puedes eliminar productos de un inventario que no te pertenece")
 
         # Hard delete solo para admins si lo solicitan explícitamente
         if self.request.user.is_staff and self.request.query_params.get('hard_delete') == 'true':
-            instance.delete()
+            # Usar QuerySet.delete() para forzar borrado físico (evita el override de instance.delete())
+            Product.objects.filter(pk=instance.pk).delete()
         else:
-            # Soft delete: marcar como inactivo
-            instance.is_active = False
-            instance.save()
+            # Soft delete: usar el override del modelo (que setea deleted_at + is_active=False)
+            instance.delete()
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk=None):
@@ -565,23 +618,24 @@ class ProductViewSet(viewsets.ModelViewSet):
         Restaurar un producto eliminado (soft delete).
         POST /api/products/{id}/restore/
         """
-        product = self.get_object()
+        try:
+            # Obtener el producto ignorando el filtro por `is_active` que usa get_object()
+            # para poder restaurar items soft-deleted (están is_active=False y tienen deleted_at)
+            product = Product.objects.select_related('inventory').get(pk=pk)
+        except Product.DoesNotExist:
+            return Response({'detail': 'Producto no encontrado.'}, status=404)
 
         # Verificar permisos
         if not request.user.is_staff and product.inventory.owner != request.user:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("No tienes permiso para restaurar este producto")
 
-        # Verificar si ya está activo
-        if product.is_active:
-            return Response(
-                {'error': 'El producto ya está activo'},
-                status=400
-            )
+        # Si el producto no está en la papelera (no tiene deleted_at y está activo), devolver error
+        if product.deleted_at is None and product.is_active:
+            return Response({'error': 'El producto ya está activo'}, status=400)
 
-        # Restaurar producto
-        product.is_active = True
-        product.save()
+        # Restaurar usando el método del modelo (resetea deleted_at e is_active)
+        product.restore()
 
         serializer = self.get_serializer(product)
         return Response({

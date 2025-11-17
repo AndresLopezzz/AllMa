@@ -79,7 +79,7 @@ export default function ProductCards({ products }: Props) {
             <Card className="overflow-hidden hover:shadow-lg transition-shadow">
               <CardContent className="p-0">
                 {/* Imagen grande */}
-                <div className="aspect-[4/3] bg-muted">
+                <div className="aspect-4/3 bg-muted">
                   {p.image_url ? (
                     <img
                       src={p.image_url}
@@ -162,7 +162,7 @@ export default function ProductCards({ products }: Props) {
 
                 <div className="space-y-6">
                   {/* Imagen */}
-                  <div className="aspect-[16/9] bg-muted rounded-lg overflow-hidden">
+                  <div className="aspect-video bg-muted rounded-lg overflow-hidden">
                     {selectedProduct.image_url ? (
                       <img
                         src={selectedProduct.image_url}
