@@ -42,8 +42,8 @@ jobs:
         # Use the repository script which reads Django settings to find STATIC_ROOT.
         # The script expects Django available (installed in the previous step).
         run: |
-          chmod +x inventory/scripts/copy_frontend_to_static.sh || true
-          bash inventory/scripts/copy_frontend_to_static.sh
+          chmod +x ./scripts/copy_frontend_to_static.sh || true
+          bash ./scripts/copy_frontend_to_static.sh
 
       - name: Collect static files
         env:
