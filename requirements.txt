@@ -1,0 +1,43 @@
+# requirements for deployment
+# Recommended: create and activate a virtualenv, then:
+#   pip install -r inventory\requirements.txt
+#
+# Core
+Django==5.2.7
+
+# REST API
+djangorestframework>=3.14,<4.0
+djangorestframework-simplejwt>=5.2,<6.0
+
+# DB / env / utils
+psycopg2-binary>=2.9,<3.0
+python-decouple>=3.8,<4.0
+dj-database-url>=1.0,<2.0
+
+# Static files / serving
+whitenoise>=6.4,<7.0
+
+# CORS
+django-cors-headers>=3.13,<4.0
+
+# Gunicorn for WSGI process (used by Render/Railway/Heroku-like platforms)
+gunicorn>=20.1,<21.0
+
+# Cloudinary for media storage
+cloudinary>=1.28.0,<2.0
+cloudinary-storage>=0.4.0,<1.0
+
+# Images
+Pillow>=9.0,<10.0
+
+# Filtering and utilities
+django-filter>=23.0,<24.0
+
+# Debugging (only used in development; will be removed in production via settings)
+django-debug-toolbar>=4.0,<5.0
+
+# Optional but useful (linting / management during deploys)
+# You can add these in dev requirements if desired:
+# black
+# isort
+# pytest

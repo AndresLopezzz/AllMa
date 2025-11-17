@@ -335,7 +335,7 @@ function DashboardRouteComponent() {
               estadísticas y análisis detallados aquí.
             </p>
             <Button asChild>
-              <Link to="/inventories">
+              <Link to="/inventories" search={{ template: undefined }}>
                 <Warehouse className="mr-2 size-4" />
                 Ir a Inventarios
               </Link>
@@ -356,13 +356,13 @@ function DashboardRouteComponent() {
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row gap-3">
               <Button className="flex-1" asChild>
-                <Link to="/inventories">
+                <Link to="/inventories" search={{ template: undefined }}>
                   <PlusCircle className="mr-2 size-4" />
                   Agregar Producto
                 </Link>
               </Button>
               <Button className="flex-1" variant="secondary" asChild>
-                <Link to="/inventories">
+                <Link to="/inventories" search={{ template: undefined }}>
                   <PackagePlus className="mr-2 size-4" />
                   Nuevo Inventario
                 </Link>
@@ -658,7 +658,7 @@ function DashboardRouteComponent() {
                     className="w-full mt-2"
                     asChild
                   >
-                    <Link to="/inventories">
+                    <Link to="/inventories" search={{ template: undefined }}>
                       Ver todas las alertas
                       <ArrowRight className="ml-2 size-4" />
                     </Link>
