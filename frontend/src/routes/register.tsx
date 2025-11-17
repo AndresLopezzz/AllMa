@@ -70,7 +70,8 @@ function Register() {
       setUser(data.user, { access: data.access, refresh: data.refresh });
       toast.success("Registro exitoso");
       navigate({ to: "/dashboard" });
-    } catch (err) {
+    } catch (err: unknown) {
+      console.error("Register error:", err);
       toast.error(
         "No pudimos crear tu cuenta. Verifica los datos e inténtalo nuevamente.",
       );
