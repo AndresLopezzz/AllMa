@@ -13,9 +13,13 @@ export default defineConfig({
     tailwindcss(),
   ],
   resolve: {
+    // Resolve common extensions and add an explicit alias for the `@/lib` path
+    // so imports like "@/lib/store/AuthStore" resolve correctly on case-sensitive CI.
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@/lib": path.resolve(__dirname, "./src/lib"),
     },
+    extensions: [".mjs", ".js", ".ts", ".tsx", ".jsx", ".json"],
   },
   build: {
     outDir: "dist",
