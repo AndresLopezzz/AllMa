@@ -19,6 +19,7 @@ djangorestframework-simplejwt>=5.3,<6.0
 
 # Image Storage (Cloudinary)
 cloudinary>=1.41,<2.0
+django-cloudinary-storage
 
 # CORS Headers (para conectar con frontend)
 django-cors-headers>=4.3,<5.0
