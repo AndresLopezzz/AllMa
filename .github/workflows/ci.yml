@@ -16,13 +16,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Bun (for frontend)
         uses: oven-sh/setup-bun@v1
         with:
-          bun-version: "1.0.0" # use an appropriate bun version; runner will install if needed
+          bun-version: "1.0.0"
 
       - name: Install and build frontend with Bun
         working-directory: frontend
@@ -40,27 +38,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements.txt
 
-      - name: Verify Python and Django installation
-        run: |
-          echo "=== Python executable and version ==="
-          python -V
-          echo "=== pip list (top) ==="
-          python -m pip list --format=columns | sed -n '1,20p' || true
-          echo "=== Check if Django is importable and print version ==="
-          python <<'PY'
-import pkgutil, sys, importlib
-if pkgutil.find_loader('django') is None:
-    print('DJANGO_INSTALLED=False', file=sys.stderr)
-    sys.exit(1)
-django = importlib.import_module('django')
-print('DJANGO_INSTALLED=True')
-print('DJANGO_VERSION=' + django.get_version())
-print('Django module file: ' + getattr(django, '__file__', 'unknown'))
-PY
-
       - name: Copy frontend build into Django STATIC_ROOT
-        # Use the repository script which reads Django settings to find STATIC_ROOT.
-        # The script expects Django available (installed in the previous step).
         run: |
           chmod +x ./scripts/copy_frontend_to_static.sh || true
           bash ./scripts/copy_frontend_to_static.sh
