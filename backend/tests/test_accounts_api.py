@@ -4,6 +4,7 @@ import uuid
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
+from django.test.utils import override_settings
 
 from accounts.models import User
 
@@ -12,6 +13,7 @@ def unique_email():
     return f"test-{uuid.uuid4().hex[:8]}@example.com"
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class AccountsAPITests(APITestCase):
     """
     Real API tests for accounts endpoints:
