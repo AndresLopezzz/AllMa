@@ -1,274 +1,262 @@
 # Allma Inventory
 
-Sistema modular de inventarios diseñado para adaptarse a diferentes tipos de negocios mediante plantillas personalizables. Permite a pequeñas y medianas empresas gestionar sus productos con campos dinámicos según sus necesidades específicas.
+Sistema modular de inventarios diseñado para adaptarse a diferentes tipos de negocios mediante plantillas personalizables. Permite a pequeñas y medianas empresas gestionar sus productos con campos dinámicos, múltiples inventarios, control de stock y tracking de movimientos.
 
-## Descripción del Proyecto
+**Estado actual:** MVP completo (Backend + Frontend)  
+**Versión:** 1.0.0 (MVP)  
+**Última actualización:** 2025-11-20
 
-Este sistema ofrece una solución flexible para la gestión de inventarios que se adapta a distintos rubros comerciales. A diferencia de sistemas rígidos, utiliza un sistema de plantillas que permite definir campos personalizados según el tipo de negocio (ferretería, ropa, restaurante, etc.).
+---
 
-### Características Principales
+## Resumen
 
-**Sistema de plantillas dinámicas**
-- Cada tipo de negocio puede definir sus propios campos personalizados
-- Validaciones automáticas según la estructura definida
-- Soporte para diferentes tipos de datos (texto, número, selección múltiple)
+Allma Inventory es una solución SaaS orientada a gestionar inventarios con flexibilidad mediante plantillas dinámicas (custom_fields). El proyecto ya incluye una API REST completa, autenticación JWT, control de planes, integración con Cloudinary para imágenes y una interfaz de usuario (frontend) lista para uso MVP.
 
-**Gestión de inventarios**
-- Control de stock con alertas de bajo inventario
-- Soporte para múltiples inventarios por usuario
-- SKU único por inventario para evitar duplicados
-- Soft delete para mantener historial
+---
 
-**Autenticación y permisos**
-- Sistema de roles (administrador/empleado)
-- Planes de suscripción con límites configurables
-- Autenticación mediante JWT con tokens de corta y larga duración
+## Características principales (MVP)
 
-**Almacenamiento de imágenes**
-- Integración con Cloudinary para almacenamiento externo
-- Optimización automática de imágenes (WebP/AVIF)
-- Múltiples versiones (thumbnail, medium, full)
+- Sistema de plantillas dinámicas por tipo de negocio (ej. Ferretería, Ropa, Restaurante).
+- Inventarios por usuario con plantillas y plantillas personalizables por inventario.
+- CRUD completo de productos con validación de campos dinámicos (custom_fields).
+- SKU único por inventario y validaciones de integridad (cantidad y precio).
+- Control de stock con alertas de stock bajo y endpoint de alertas.
+- Tracking de movimientos (registro de entradas/salidas/ajustes).
+- Exportación a CSV de inventarios completos.
+- Autenticación con JWT (access/refresh tokens) y endpoints de cuenta (registro, login, perfil).
+- Planes (Free / Pro / Premium) con límites configurables (inventarios/productos).
+- Soft delete en productos e historial para restauración.
+- Integración con Cloudinary para almacenamiento y optimización de imágenes (thumbnail/medium/full).
+- Frontend completo usando React + TypeScript con TanStack Router, TanStack Query y formularios dinámicos.
+- CI: pipeline de GitHub Actions que compila frontend con Bun/Vite y ejecuta tests (pytest).
+
+---
 
 ## Stack Tecnológico
 
-**Backend:** Django 5.2 + Django REST Framework + PostgreSQL
-**Autenticación:** JWT (djangorestframework-simplejwt)
-**Almacenamiento:** Cloudinary
-**Testing:** Django TestCase (78% coverage)
+- Backend: Django 5.2 + Django REST Framework + PostgreSQL
+- Autenticación: JWT (djangorestframework-simplejwt)
+- Almacenamiento: Cloudinary (django-cloudinary-storage)
+- Testing: pytest + pytest-django + coverage (cobertura: ~85%)
+- Frontend: React + TypeScript + Bun + Vite
+  - Routing: TanStack Router
+  - Server state: TanStack Query
+  - Forms: TanStack Form + Zod
+  - UI: shadcn/ui + Tailwind CSS
+  - Gráficas: Recharts
+  - Notificaciones: Sonner
+- CI: GitHub Actions (build frontend + run tests)
 
-**Frontend:** React + TypeScript + TanStack Router/Query (en desarrollo)
+---
 
 ## Estructura del Proyecto
 
 ```
 inventory/
-├── backend/
-│   ├── accounts/          # Gestión de usuarios y autenticación
-│   ├── inventory/         # Lógica de inventarios y productos
-│   ├── backend/           # Configuración del proyecto
+├── backend/                # Django app y API
+│   ├── accounts/           # Usuarios y autenticación
+│   ├── inventory/          # Lógica de inventarios, productos y movimientos
+│   ├── backend/            # Configuración del proyecto (settings, urls)
 │   └── manage.py
-├── frontend/              # Aplicación React (próximamente)
-└── README.md
+├── frontend/               # Aplicación React + Bun + Vite
+│   ├── src/
+│   └── bun.lock
+└── README.md               # Este archivo
 ```
 
-## Instalación y Configuración
+---
 
-### Prerrequisitos
+## Requisitos previos
 
 - Python 3.11+
 - PostgreSQL 14+
-- Cuenta en Cloudinary (para imágenes)
+- Bun (para desarrollo del frontend) — alternativamente Node 18+ si no se usa Bun
+- Cuenta en Cloudinary para subir/optimizar imágenes
+- (Opcional) Docker/Docker Compose para levantar Postgres localmente
 
-### Configuración Inicial
+---
 
-1. Clonar el repositorio y crear entorno virtual
-2. Instalar dependencias: `pip install -r requirements.txt`
-3. Configurar variables de entorno en archivo `.env`
-4. Ejecutar migraciones: `python manage.py migrate`
-5. Crear superusuario: `python manage.py createsuperuser`
-6. **(Opcional)** Poblar con datos de prueba: `python manage.py seed_data --clear`
-7. Iniciar servidor: `python manage.py runserver`
+## Instalación y configuración local (rápido)
 
-### Datos de Prueba (Seed Data)
+### Backend
 
-El proyecto incluye un comando personalizado para poblar la base de datos con datos de ejemplo:
+1. Crear y activar un entorno virtual:
+   ```bash
+   python -m venv venv
+   # Unix/macOS
+   source venv/bin/activate
+   # Windows
+   venv\Scripts\activate
+   ```
 
-```bash
-# Crear datos de prueba (mantiene datos existentes)
-python manage.py seed_data
+2. Instalar dependencias:
+   ```bash
+   pip install -r backend/requirements.txt
+   ```
 
-# Limpiar base de datos y crear datos frescos
-python manage.py seed_data --clear
-```
+3. Copiar el archivo de ejemplo de variables de entorno y configurarlo:
+   ```bash
+   cp backend/.env.example backend/.env
+   # Edita backend/.env con las credenciales DB, SECRET_KEY, CLOUDINARY_*
+   ```
 
-**Datos generados:**
-- 3 usuarios con diferentes planes (free, pro)
-- 5 plantillas de negocio (Ferretería, Ropa, Electrónica, Alimentos, Librería)
-- 10 inventarios distribuidos entre usuarios
-- ~110 productos con stock variado
-- 50 movimientos de inventario
+4. Ejecutar migraciones y crear superuser:
+   ```bash
+   python backend/manage.py migrate
+   python backend/manage.py createsuperuser
+   ```
 
-**Credenciales de acceso:**
-- Email: `free@example.com` | Password: `password123` (Plan Free)
-- Email: `pro@example.com` | Password: `password123` (Plan Pro)
-- Email: `pro2@example.com` | Password: `password123` (Plan Pro)
+5. (Opcional) Poblar con datos de ejemplo:
+   ```bash
+   python backend/manage.py seed_data --clear
+   ```
 
-Estos datos son ideales para:
-- Probar la API sin crear datos manualmente
-- Desarrollo del frontend con datos realistas
-- Demos y presentaciones
-- Testing de features
+6. Levantar servidor de desarrollo:
+   ```bash
+   python backend/manage.py runserver
+   ```
 
-### Variables de Entorno Requeridas
+### Frontend
 
-```
-SECRET_KEY=
-DEBUG=
-ALLOWED_HOSTS=
+1. Instalar Bun (o usar Node):
+   ```bash
+   curl -fsSL https://bun.sh/install | bash
+   ```
 
-DB_NAME=
-DB_USER=
-DB_PASSWORD=
-DB_HOST=
-DB_PORT=
+2. Instalar dependencias en `frontend/`:
+   ```bash
+   cd frontend
+   bun install
+   ```
 
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-```
+3. Configurar variables (ej.: `VITE_API_URL` en `.env.local`):
+   ```bash
+   cp .env.example .env.local
+   # o crear .env.local con:
+   # VITE_API_URL=http://localhost:8000
+   ```
 
-## API
+4. Levantar en modo desarrollo:
+   ```bash
+   bun run dev
+   ```
 
-La API REST está completamente documentada en `/backend/api_docs.md` con:
-- Tabla completa de endpoints
-- Ejemplos de request/response para cada uno
-- Códigos de error comunes
-- Notas sobre paginación, filtros y ordenamiento
-- Información sobre límites por plan
+5. Build de producción:
+   ```bash
+   bun run build
+   ```
 
-**Endpoints principales:**
-- `/api/register/` - Registro de usuarios
-- `/api/login/` - Autenticación
-- `/api/templates/` - Plantillas de negocio
-- `/api/inventories/` - Gestión de inventarios
-- `/api/inventories/{id}/stats/` - Estadísticas detalladas por inventario
-- `/api/inventories/{id}/export/` - Exportar productos a CSV
-- `/api/products/` - CRUD de productos
-- `/api/products/{id}/adjust_stock/` - Ajustar stock con tracking
-- `/api/dashboard/` - Métricas generales del usuario
-- `/api/alerts/` - Productos con stock bajo ordenados por criticidad
+---
 
-### Dashboard API
+## Endpoints principales (Resumen)
 
-El endpoint `/api/dashboard/` proporciona métricas clave y datos listos para visualización.
+La API está documentada en `/backend/api_docs.md`. A continuación algunos endpoints principales:
 
-**Métricas básicas:**
-- `total_products` - Cantidad total de productos activos
-- `total_inventory_value` - Valor total del inventario (precio × cantidad)
-- `low_stock_count` - Productos con stock bajo o igual al umbral
-- `out_of_stock_count` - Productos sin stock
-- `total_inventories` - Cantidad de inventarios del usuario
+- POST `/api/accounts/register/` — registrar usuario
+- POST `/api/accounts/login/` — login (tokens access + refresh)
+- GET `/api/accounts/profile/` — perfil del usuario
+- GET/POST `/api/templates/` — plantillas de negocio
+- GET/POST/PUT/DELETE `/api/inventories/` — inventarios
+- GET `/api/inventories/{id}/stats/` — estadísticas por inventario
+- GET `/api/inventories/{id}/export/` — exportar a CSV
+- GET/POST/PUT/DELETE `/api/products/` — productos
+- POST `/api/products/{id}/adjust_stock/` — ajustar cantidad y crear movimiento
+- GET `/api/dashboard/` — métricas y datos para gráficas
+- GET `/api/alerts/` — productos en stock bajo
 
-**Datos para gráficas:**
-- `products_by_category` - Array de objetos `{category, count}` ordenado por cantidad
-- `value_by_inventory` - Array de objetos `{inventory_id, inventory_name, value}` ordenado por valor
-- `recent_movements` - Últimos 10 movimientos con información completa del producto
+Para detalles (request/response) revisa `backend/api_docs.md`.
 
-**Filtros opcionales:**
-- `?inventory=<id>` - Filtra todas las métricas por un inventario específico
+---
 
-**Ejemplo de respuesta:**
-```json
-{
-  "total_products": 23,
-  "total_inventory_value": 49644.38,
-  "low_stock_count": 14,
-  "out_of_stock_count": 3,
-  "total_inventories": 9,
-  "products_by_category": [
-    {"category": "Herramientas", "count": 8},
-    {"category": "Electrónica", "count": 5}
-  ],
-  "value_by_inventory": [
-    {"inventory_id": 1, "inventory_name": "Bodega 1", "value": 25000.50}
-  ],
-  "recent_movements": [
-    {
-      "id": 45,
-      "product_name": "Martillo",
-      "movement_type": "salida",
-      "quantity": -15,
-      "timestamp": "2025-11-02T19:16:00Z"
-    }
-  ]
-}
-```
+## Datos de prueba / Seed
 
-**Performance:**
-- Optimizado con agregaciones a nivel de base de datos
-- Máximo 9 queries independiente del tamaño del dataset
-- Respuesta < 500ms con 100+ productos
+El comando `seed_data` crea usuarios, plantillas, inventarios y productos de ejemplo para pruebas y desarrollo.
+Datos generados típicamente:
+- 3 usuarios (free / pro / pro2)
+- 5 plantillas (Ferretería, Ropa, Electrónica, Alimentos, Librería)
+- 10 inventarios
+- ~100+ productos
+- 50 movimientos
 
-## Testing
+Credenciales de ejemplo (seed):
+- `free@example.com` | `password123` (Plan Free)
+- `pro@example.com` | `password123` (Plan Pro)
+- `pro2@example.com` | `password123` (Plan Pro)
+
+---
+
+## Pruebas y cobertura
+
+Ejecutar tests en el backend:
 
 ```bash
-# Ejecutar todos los tests
-python manage.py test
-
-# Ejecutar tests específicos
-python manage.py test inventory.tests.AlertAPITests
-python manage.py test accounts.tests
-
-# Ejecutar tests con cobertura
-coverage run --source='.' manage.py test
+# desde la raíz del proyecto
+python -m pytest -q
+# o con cobertura
+coverage run --source='backend' -m pytest -q
 coverage report
 ```
 
-**Cobertura actual:** 85% (93 tests implementados)
+Cobertura reportada (backend): ~85%.
 
-Los tests cubren:
-- ✅ Autenticación y permisos (registro, login, perfil)
-- ✅ CRUD completo de productos con validaciones
-- ✅ Gestión de inventarios y plantillas
-- ✅ Sistema de alertas de stock bajo
-- ✅ Dashboard con métricas y gráficas
-- ✅ Exportación a CSV
-- ✅ Estadísticas por inventario
-- ✅ Tracking de movimientos
-- ✅ Soft delete y restauración
-- ✅ Ajustes de stock con diferentes tipos
-</parameter>
+La pipeline de CI (`.github/workflows/ci.yml`) construye el frontend y ejecuta los tests para proteger la rama `main`.
 
-<old_text line=177>
-## Próximos Pasos
+---
 
-- Completar frontend con React y TanStack
-- Implementar dashboard con estadísticas
-- Sistema de reportes y exportación
-- Historial de movimientos de inventario
-- Notificaciones por email
-- API pública con rate limiting
+## Integraciones y herramientas relevantes
 
-## Modelo de Negocio
+- Cloudinary para subir y optimizar imágenes (tamaños `thumbnail`, `medium`, `full`).
+- django-filter para filtros en endpoints de list.
+- WhiteNoise para servir static files en producción.
+- Gunicorn como WSGI para producción.
+- TanStack Query + TanStack Router en frontend para estado y routing.
+- shadcn/ui + Tailwind para componentes UI.
 
-El sistema está diseñado para ofrecer diferentes planes de suscripción:
+---
 
-**Plan Free:** Límites básicos para prueba del servicio
-**Plan Pro:** Límites extendidos para pequeñas empresas
-**Plan Premium:** Sin límites para empresas establecidas
+## Desarrollo y contribución
 
-Los límites se configuran en `inventory/constants.py` y se validan automáticamente en cada operación.
+Sugerencias para contribuir:
+1. Crea una rama desde `main` (naming: `feature/*`, `fix/*`).
+2. Implementa los cambios con tests automáticos.
+3. Ejecuta los tests localmente.
+4. Crea un Pull Request con descripción clara y referencia a issues.
 
-## Próximos Pasos
+Recomendación:
+- Mantener PRs pequeños y enfocados.
+- Añadir tests a nuevas funcionalidades.
+- Mantener consistencia en los estilos (eslint + prettier/tailwind).
 
-- Completar frontend con React y TanStack
-- Implementar dashboard con estadísticas
-- Sistema de reportes y exportación
-- Historial de movimientos de inventario
-- Notificaciones por email
-- API pública con rate limiting
+---
 
-## Deploy
+## Próximos pasos y mejoras (V2 y beyond)
 
-**Backend:** Railway o similar (PostgreSQL incluido)
-**Frontend:** Vercel
-**Imágenes:** Cloudinary
+- Pulir la experiencia de usuario (UX) y accesibilidad.
+- Integración de notificaciones por email y push (por ejemplo para alertas).
+- Sistema de pago / suscripción (billing) y Webhooks.
+- Rate limiting para API pública y endpoints con límites por plan.
+- Reportes avanzados y exportación a XLSX/PDF.
+- Analíticas y métricas (event tracking) para el dashboard.
+- Monitoreo, alertas y logs centralizados.
+- Mejoras de pruebas end-to-end (Playwright/Cypress).
 
-## Desarrollo
+---
 
-El proyecto sigue las convenciones estándar de Django. Para contribuir:
+## Changelog (resumen v1.0 — MVP)
 
-1. Crear rama desde `main`
-2. Implementar cambios con tests
-3. Verificar que todos los tests pasen
-4. Crear pull request con descripción clara
+- Implementación completa del backend (API REST).
+- Plantillas dinámicas y custom_fields por inventario.
+- CRUD de inventarios y productos con validaciones.
+- Tracking de movimientos y exportación a CSV.
+- Alertas de stock bajo y dashboard con métricas.
+- Integración con Cloudinary y optimizaciones de imágenes.
+- Frontend con React + Bun + Vite + TanStack (MVP completado).
+- Tests automáticos y CI configurado (build + tests).
+
+---
 
 ## Licencia
 
 MIT License
 
 ---
-
-**Estado:** Backend completo - Frontend en desarrollo
-**Versión:** 1.0.0 (Backend MVP completo)
-**Última actualización:** Noviembre 2024
